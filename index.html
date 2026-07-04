@@ -364,10 +364,6 @@ tr:hover td{background:#fafafa;cursor:pointer}
             <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
           </button>
-          <button class="btn btn-primary" onclick="poslaNakupEmailem()">
-            <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            Poslat emailem
-          </button>
         </div>
       </div>
       <div id="nakupContent" style="padding:16px 24px"></div>
@@ -1431,26 +1427,6 @@ function exportNakupCsv() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'nakupni_seznam.csv'; a.click();
   URL.revokeObjectURL(url);
-}
-
-function poslaNakupEmailem() {
-  const potrebuje = allProducts.filter(p =>
-    p.mnozstvi !== null && (p.alert === 'kriticky' || p.alert === 'nizky')
-  );
-  if (!potrebuje.length) { alert('Není co posílat'); return; }
-
-  callBackend('poslaNakupEmail', { produkty: potrebuje.map(p => ({
-      nazev: p.nazev,
-      kategorie: p.kategorie,
-      dodavatel: p.dodavatel || 'Neuvedeno',
-      mnozstvi: p.mnozstvi,
-      minimum: p.minimum,
-      optimum: p.optimum,
-      ksVBaleni: p.ksVBaleni,
-      alert: p.alert
-    })) })
-    .then(function() { alert('Email odeslán! ✓'); })
-    .catch(function(e) { alert('Chyba: ' + e.message); });
 }
 
 // ── HODNOTA SKLADU ────────────────────────────────────
