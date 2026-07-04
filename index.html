@@ -1417,7 +1417,9 @@ function exportNakupCsv() {
   potrebuje.forEach(p => {
     const chybi = Math.max(0, p.optimum - p.mnozstvi);
     const baleni = Math.ceil(chybi / p.ksVBaleni);
-    rows.push([p.nazev, p.kategorie, p.dodavatel, p.mnozstvi, p.minimum, p.optimum, chybi, baleni, p.alert==='kriticky'?'Kritické':'Nízký stav']);
+    rozdelDodavatele(p.dodavatel).forEach(d => {
+      rows.push([p.nazev, p.kategorie, d, p.mnozstvi, p.minimum, p.optimum, chybi, baleni, p.alert==='kriticky'?'Kritické':'Nízký stav']);
+    });
   });
 
   const csv = rows.map(r => r.map(c => {
