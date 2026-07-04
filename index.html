@@ -1346,6 +1346,13 @@ function ulozMinOptimum() {
 }
 
 // ── NÁKUPNÍ SEZNAM ────────────────────────────────────
+// Rozdeli pole "Dodavatel" na jednotlive dodavatele oddelene carkou —
+// polozka s vic dodavateli (napr. "Dentamed, Henry Schein") se pak v
+// nakupnim seznamu objevi zvlast pod kazdym z nich.
+function rozdelDodavatele(dodavatel) {
+  return (dodavatel || 'Bez dodavatele').split(',').map(d => d.trim()).filter(Boolean);
+}
+
 function renderNakup() {
   const potrebuje = allProducts.filter(p =>
     p.mnozstvi !== null && (p.alert === 'kriticky' || p.alert === 'nizky')
@@ -1359,11 +1366,12 @@ function renderNakup() {
 
   const poDodavateli = {};
   potrebuje.forEach(p => {
-    const d = p.dodavatel || 'Bez dodavatele';
-    if (!poDodavateli[d]) poDodavateli[d] = [];
     const chybi = Math.max(0, p.optimum - p.mnozstvi);
     const baleni = Math.ceil(chybi / p.ksVBaleni);
-    poDodavateli[d].push({ ...p, chybi, baleni });
+    rozdelDodavatele(p.dodavatel).forEach(d => {
+      if (!poDodavateli[d]) poDodavateli[d] = [];
+      poDodavateli[d].push({ ...p, chybi, baleni });
+    });
   });
 
   document.getElementById('nakupSub').textContent = potrebuje.length + ' produktů k objednání';
