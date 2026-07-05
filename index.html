@@ -201,6 +201,9 @@ tr:hover td{background:#fafafa;cursor:pointer}
       <button class="nav-item" onclick="showScreen('alerty')" id="snav-alerty">
         <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alerty
       </button>
+      <button class="nav-item" onclick="showScreen('mistnosti')" id="snav-mistnosti">
+        <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>Přehled míst
+      </button>
       <div class="nav-divider"></div>
       <div class="nav-section-label">Nástroje</div>
       <button class="nav-item" onclick="showScreen('inventura')" id="snav-inventura">
@@ -307,6 +310,12 @@ tr:hover td{background:#fafafa;cursor:pointer}
           <div id="alertyExpirace"><div class="empty" style="padding:20px">Načítám...</div></div>
         </div>
       </div>
+    </div>
+
+    <!-- PŘEHLED MÍST -->
+    <div class="screen" id="screen-mistnosti">
+      <div class="page-header"><div><h2>Přehled míst</h2><p>Co je naskladněno na kterém místě</p></div></div>
+      <div id="mistnostiContent" style="padding:16px 24px"></div>
     </div>
 
     <!-- INVENTURA -->
@@ -542,6 +551,10 @@ tr:hover td{background:#fafafa;cursor:pointer}
   <button class="mobile-menu-item" onclick="mobileGo('nakup')">
     <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
     Nákupní seznam
+  </button>
+  <button class="mobile-menu-item" onclick="mobileGo('mistnosti')">
+    <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+    Přehled míst
   </button>
   <button class="mobile-menu-item" onclick="mobileGo('sprava')">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
@@ -1310,6 +1323,7 @@ function showScreen(name) {
   if (name === 'pohyby') loadPohyby();
   if (name === 'nakup') renderNakup();
   if (name === 'qr') renderQr();
+  if (name === 'mistnosti') renderMistnosti();
   if (name === 'inventura' && wizardQueue.length === 0) resetWizard();
   if (name === 'hodnota') loadHodnota();
 }
@@ -1558,7 +1572,57 @@ function ulozMinOptimum() {
     .catch(function(e){ alert('Chyba: ' + e.message); });
 }
 
-// ── NÁKUPNÍ SEZNAM ────────────────────────────────────
+// ── PŘEHLED MÍST ──────────────────────────────────────
+const SKLADOVA_MISTA = ['Steril 1', 'Ordinace 1', 'Ordinace DH', 'Steril 2', 'Ordinace 2'];
+
+function renderMistnosti() {
+  const poMiste = {};
+  SKLADOVA_MISTA.forEach(m => poMiste[m] = []);
+  const bezMista = [];
+
+  allProducts.forEach(p => {
+    const u = (p.umisteni || '').trim();
+    if (!u) { bezMista.push(p); return; }
+    if (!poMiste[u]) poMiste[u] = [];
+    poMiste[u].push(p);
+  });
+
+  const poradi = SKLADOVA_MISTA.concat(Object.keys(poMiste).filter(m => !SKLADOVA_MISTA.includes(m)));
+  let html = poradi.map(m => mistnostKarta(m, poMiste[m] || [])).join('');
+  if (bezMista.length) html += mistnostKarta('Bez umístění', bezMista);
+
+  document.getElementById('mistnostiContent').innerHTML = html;
+}
+
+function mistnostKarta(nazev, produkty) {
+  const radky = produkty.length
+    ? produkty.map(p => {
+        const ks = p.mnozstvi !== null ? p.mnozstvi : null;
+        const bc = p.alert==='kriticky' ? 'badge-zero' : p.alert==='nizky' ? 'badge-low' : ks!==null ? 'badge-ok' : 'badge-empty';
+        const bt = ks !== null ? ks+' ks' : '– ks';
+        return `<tr onclick="openDetail(${p.row})" style="cursor:pointer">
+          <td><div class="td-name">${p.nazev}</div></td>
+          <td>${p.kategorie||'—'}</td>
+          <td><span class="badge ${bc}">${bt}</span></td>
+          <td>${p.minimum||'—'} ks</td>
+        </tr>`;
+      }).join('')
+    : '';
+  return `
+    <div class="content-card full" style="margin-bottom:16px">
+      <div class="card-header">
+        <span>${nazev}</span>
+        <span style="font-size:12px;color:#888;font-weight:400">${produkty.length} položek</span>
+      </div>
+      ${produkty.length
+        ? `<div class="table-wrap"><table>
+            <thead><tr><th>Název</th><th>Kategorie</th><th>Stav</th><th>Minimum</th></tr></thead>
+            <tbody>${radky}</tbody>
+          </table></div>`
+        : '<div class="empty" style="padding:16px">Nic tu není naskladněno</div>'}
+    </div>`;
+}
+
 // Rozdeli pole "Dodavatel" na jednotlive dodavatele oddelene carkou —
 // polozka s vic dodavateli (napr. "Dentamed, Henry Schein") se pak v
 // nakupnim seznamu objevi zvlast pod kazdym z nich.
