@@ -982,7 +982,10 @@ function renderDetailPanel(p) {
       ${df('EAN kód',p.ean||'—')}
       ${p.poznamka ? df('Poznámka',p.poznamka) : ''}
     </div>
-<button class="btn" style="width:100%;margin-top:8px" onclick="showEditModal(${p.row})">Upravit produkt</button>`;
+<div style="display:flex;gap:8px;margin-top:8px">
+  <button class="btn" style="flex:1;justify-content:center" onclick="showEditModal(${p.row})">Upravit produkt</button>
+  <button class="btn" style="flex:1;justify-content:center" onclick="kopirovatProdukt(${p.row})">📋 Kopírovat na jiné místo</button>
+</div>`;
 }
 
 function df(label, val) {
@@ -1207,6 +1210,27 @@ function showEditModal(rowIndex) {
 
 function closeEditModal() { document.getElementById('editModalOverlay').classList.remove('open'); editingRow = null; }
 
+// Predvyplni formular daty existujiciho produktu, ale jako NOVY produkt
+// (editingRow = null) — Umisteni a mnozstvi zustavaji prazdne, protoze
+// jde o zalozeni stejneho produktu na jinem miste (nove sklad. jednotce).
+function kopirovatProdukt(rowIndex) {
+  const p = allProducts.find(x => x.row === rowIndex);
+  if (!p) return;
+  editingRow = null;
+  document.getElementById('editModalTitle').textContent = 'Kopírovat produkt (nové umístění)';
+  document.getElementById('ef_nazev').value = p.nazev;
+  document.getElementById('ef_kategorie').value = p.kategorie || 'Spotřební materiál';
+  document.getElementById('ef_dodavatel').value = p.dodavatel || '';
+  document.getElementById('ef_ksVBaleni').value = p.ksVBaleni;
+  document.getElementById('ef_minimum').value = p.minimum;
+  document.getElementById('ef_optimum').value = p.optimum;
+  document.getElementById('ef_umisteni').value = '';
+  document.getElementById('ef_typ').value = p.typ || 'inventurní';
+  document.getElementById('ef_poznamka_edit').value = p.poznamka || '';
+  document.getElementById('ef_ean').value = p.ean || '';
+  document.getElementById('editModalOverlay').classList.add('open');
+}
+
 function saveProdukt() {
   const nazev = document.getElementById('ef_nazev').value.trim();
   if (!nazev) { alert('Zadej název produktu'); return; }
@@ -1334,16 +1358,40 @@ function zpracujNaskenovanyEAN(ean) {
 
   callBackend('najdiProduktPodleEAN', { ean: ean })
     .then(function(res) {
-      if (res.nalezeno) {
-        zobrazNalezenyProdukt(res.row, res.nazev, ean);
+      if (!res.nalezeno) { zobrazNeznamyEAN(ean); return; }
+      if (res.shody && res.shody.length > 1) {
+        zobrazVyberUmisteni(res.shody, ean);
       } else {
-        zobrazNeznamyEAN(ean);
+        zobrazNalezenyProdukt(res.row, res.nazev, ean);
       }
     })
     .catch(function(e) {
       document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + e.message + '</div>';
       skenerAktivni = true;
     });
+}
+
+// Kdyz stejny EAN patri produktu na vic mistech (napr. Ordinace 1 i
+// Ordinace 2), necha uzivatele vybrat, ktere konkretni misto chce upravit.
+function zobrazVyberUmisteni(shody, ean) {
+  document.getElementById('skenerVysledek').innerHTML = `
+    <div class="content-card full" style="padding:20px">
+      <div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:32px;margin-bottom:8px">✓</div>
+        <div style="font-size:16px;font-weight:600">${shody[0].nazev}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">Na kterém místě?</div>
+      </div>
+      ${shody.map(function(s) {
+        const nazevEsc = s.nazev.replace(/'/g, "\\'");
+        return `<div class="alert-row" style="cursor:pointer" onclick="zobrazNalezenyProdukt(${s.row}, '${nazevEsc}', '${ean}')">
+          <div class="alert-info">
+            <div class="alert-name">${s.umisteni || 'Umístění nezadáno'}</div>
+            <div class="alert-detail">${s.mnozstvi !== null ? s.mnozstvi + ' ks' : 'nezadáno'}</div>
+          </div>
+        </div>`;
+      }).join('')}
+      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="pokracovatSkenovani()">Zrušit a skenovat další</button>
+    </div>`;
 }
 
 function zobrazNalezenyProdukt(row, nazev, ean) {
