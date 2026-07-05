@@ -222,6 +222,9 @@ tr:hover td{background:#fafafa;cursor:pointer}
       <button class="nav-item" onclick="showScreen('qr')" id="snav-qr">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><line x1="21" y1="21" x2="21" y2="21"/></svg>QR kód
       </button>
+      <button class="nav-item" onclick="showScreen('napoveda')" id="snav-napoveda">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Nápověda
+      </button>
     </nav>
   </div>
 
@@ -423,6 +426,66 @@ tr:hover td{background:#fafafa;cursor:pointer}
       </div>
     </div>
 
+    <!-- NÁPOVĚDA -->
+    <div class="screen" id="screen-napoveda">
+      <div class="page-header"><div><h2>Nápověda</h2><p>Vysvětlení pojmů a funkcí appky</p></div></div>
+      <div style="padding:16px 24px">
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">Typ sledování — Sledovaný vs. Inventurní</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            <strong>Sledovaný</strong> — objeví se v Hromadné inventuře pokaždé, i když má stav v pořádku. Hodí se pro dražší nebo důležité položky, u kterých chceš mít jistotu přesného stavu.<br>
+            <strong>Inventurní</strong> — v Hromadné inventuře se objeví jen když má nízký nebo kritický stav. Hodí se pro běžnou spotřebu, kterou stačí kontrolovat, jen když dochází.
+          </div>
+        </div>
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">Minimum vs. Optimum</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            <strong>Minimum</strong> — pod touto hranicí appka zobrazí "Nízký stav" (0 ks = "Kritické").<br>
+            <strong>Optimum</strong> — cílové množství, na které appka počítá objednávku v Nákupním seznamu ("Chybí" = Optimum − aktuální stav).
+          </div>
+        </div>
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">Stavové štítky</div>
+          <div style="font-size:13px;color:#555;line-height:1.8">
+            <span class="badge badge-zero">Kritické</span> — 0 ks na skladě<br>
+            <span class="badge badge-low">Nízký stav</span> — množství je na hranici minima nebo pod ní<br>
+            <span class="badge badge-ok">OK</span> — vše nad minimem
+          </div>
+        </div>
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">EAN kód</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            Čárový kód z krabičky, díky kterému appka pozná produkt při skenování ("Skenovat EAN"). Jeden EAN kód nejde přiřadit ke dvěma různým položkám zároveň.
+          </div>
+        </div>
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">Dodavatel — víc jmen najednou</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            Pokud produkt kupujete od víc dodavatelů, napiš je do pole Dodavatel oddělené čárkou (např. "Dentamed, Henry Schein"). V Nákupním seznamu se pak položka objeví zvlášť pod každým dodavatelem, i s odkazem na jeho e-shop.
+          </div>
+        </div>
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">Nákupní seznam — Chybí a Objednat</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            <strong>Chybí</strong> — kolik kusů schází do Optima.<br>
+            <strong>Objednat</strong> — kolik balení je potřeba doobjednat (Chybí ÷ Ks v balení, zaokrouhleno nahoru).
+          </div>
+        </div>
+        <div class="content-card full" style="margin-bottom:12px;padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">Hodnota skladu</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            Součet (aktuální množství × cena za kus) přes všechny naskladněné produkty — orientační odhad vázaného kapitálu ve skladu, ne přesná účetní hodnota.
+          </div>
+        </div>
+        <div class="content-card full" style="padding:16px">
+          <div style="font-weight:600;margin-bottom:6px">QR kód</div>
+          <div style="font-size:13px;color:#555;line-height:1.6">
+            Rychlý způsob, jak appku otevřít na mobilu — namíříš kameru telefonu na kód a appka se otevře rovnou v prohlížeči.
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
 <!-- GLOBÁLNÍ DETAIL PANEL -->
@@ -484,6 +547,10 @@ tr:hover td{background:#fafafa;cursor:pointer}
   <button class="mobile-menu-item" onclick="mobileGo('qr')">
     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/></svg>
     QR kód
+  </button>
+  <button class="mobile-menu-item" onclick="mobileGo('napoveda')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Nápověda
   </button>
   <button class="mobile-menu-item" onclick="exportCsv();closeMobileMenu()">
     <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
