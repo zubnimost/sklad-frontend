@@ -529,7 +529,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Optimum (ks)</label><input class="form-input" id="ef_optimum" type="number" min="0" value="2"></div>
-        <div class="form-group"></div>
+        <div class="form-group"><label class="form-label">EAN kód</label><input class="form-input" id="ef_ean" placeholder="Nepovinné"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Umístění</label><input class="form-input" id="ef_umisteni" placeholder="Šuplík A2..."></div>
@@ -1053,7 +1053,7 @@ document.getElementById('spravaSearch').addEventListener('input', function() {
 function showAddModal() {
   editingRow = null;
   document.getElementById('editModalTitle').textContent = 'Přidat produkt';
-  ['nazev','dodavatel','umisteni','poznamka_edit'].forEach(f => document.getElementById('ef_'+f).value = '');
+  ['nazev','dodavatel','umisteni','poznamka_edit','ean'].forEach(f => document.getElementById('ef_'+f).value = '');
   document.getElementById('ef_ksVBaleni').value = 1;
   document.getElementById('ef_minimum').value = 1;
   document.getElementById('ef_optimum').value = 2;
@@ -1075,6 +1075,7 @@ function showEditModal(rowIndex) {
   document.getElementById('ef_umisteni').value = p.umisteni || '';
   document.getElementById('ef_typ').value = p.typ || 'inventurní';
   document.getElementById('ef_poznamka_edit').value = p.poznamka || '';
+  document.getElementById('ef_ean').value = p.ean || '';
   document.getElementById('editModalOverlay').classList.add('open');
 }
 
@@ -1091,13 +1092,15 @@ function saveProdukt() {
     optimum: parseInt(document.getElementById('ef_optimum').value) || 2,
     umisteni: document.getElementById('ef_umisteni').value,
     typ: document.getElementById('ef_typ').value,
-    poznamka: document.getElementById('ef_poznamka_edit').value
+    poznamka: document.getElementById('ef_poznamka_edit').value,
+    ean: document.getElementById('ef_ean').value.trim()
   };
   const rowToUpdate = editingRow; // ulož PŘED zavřením modalu
   closeEditModal();
   if (rowToUpdate) {
     callBackend('updateProdukt', { rowIndex: rowToUpdate, data: data })
-      .then(function() {
+      .then(function(res) {
+        if (res && res.success === false) { alert('Chyba: ' + res.error); return; }
         const p = allProducts.find(x => x.row === rowToUpdate);
         if (p) {
           Object.assign(p, data);
@@ -1113,7 +1116,10 @@ function saveProdukt() {
       .catch(function(e) { alert('Chyba: ' + e.message); });
   } else {
     callBackend('pridatProdukt', { data: data })
-      .then(function() { loadData(); })
+      .then(function(res) {
+        if (res && res.success === false) { alert('Chyba: ' + res.error); return; }
+        loadData();
+      })
       .catch(function(e) { alert('Chyba: ' + e.message); });
   }
 }
