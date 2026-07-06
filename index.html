@@ -285,7 +285,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
         <div style="flex:1;overflow-y:auto">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Název</th><th>Kategorie</th><th>Dodavatel</th><th>Umístění</th><th>Stav</th><th>Minimum</th><th>Optimum</th><th>Typ</th></tr></thead>
+              <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Dodavatel</th><th>Umístění</th><th>Stav</th><th>Minimum</th><th>Optimum</th><th>Typ</th></tr></thead>
               <tbody id="searchBody"></tbody>
             </table>
           </div>
@@ -363,7 +363,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Název</th><th>Kategorie</th><th>Ks v bal.</th><th>Minimum</th><th>Umístění</th><th>Typ</th><th></th></tr></thead>
+              <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Ks v bal.</th><th>Minimum</th><th>Umístění</th><th>Typ</th><th></th></tr></thead>
               <tbody id="spravaBody"></tbody>
             </table>
           </div>
@@ -896,7 +896,7 @@ function alertRowHtml(p, color) {
     <div class="alert-dot ${color}"></div>
     <div class="alert-info">
       <div class="alert-name">${p.nazev}</div>
-      <div class="alert-detail">${p.kategorie} · ${p.dodavatel||'—'}</div>
+      <div class="alert-detail">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||'—'}</div>
     </div>
     <div class="alert-badge"><span class="badge ${color==='red'?'badge-zero':'badge-low'}">${ks} ks</span></div>
   </div>`;
@@ -943,7 +943,7 @@ function expiraceRowHtml(p) {
     <div class="alert-dot ${barva}"></div>
     <div class="alert-info">
       <div class="alert-name">${p.nazev}</div>
-      <div class="alert-detail">${p.kategorie} · ${p.mnozstvi} ks na skladě</div>
+      <div class="alert-detail">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.mnozstvi} ks na skladě</div>
     </div>
     <div class="alert-badge"><span class="badge ${badge}">${p.expirace}</span></div>
   </div>`;
@@ -976,6 +976,7 @@ function renderSearchResults(query) {
     ? allProducts.filter(p =>
         p.nazev.toLowerCase().includes(q) ||
         (p.kategorie && p.kategorie.toLowerCase().includes(q)) ||
+        (p.podkategorie && p.podkategorie.toLowerCase().includes(q)) ||
         (p.dodavatel && p.dodavatel.toLowerCase().includes(q)) ||
         (p.umisteni && p.umisteni.toLowerCase().includes(q)) ||
         (p.ean && p.ean.toString().toLowerCase().includes(q))
@@ -992,6 +993,7 @@ function renderSearchResults(query) {
     return `<tr onclick="openDetail(${p.row})">
       <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.dodavatel||''}</div></td>
       <td>${p.kategorie||'—'}</td>
+      <td>${p.podkategorie||'—'}</td>
       <td>${p.dodavatel||'—'}</td>
       <td>${p.umisteni||'—'}</td>
       <td><span class="badge ${bc}">${bt}</span></td>
@@ -1198,7 +1200,7 @@ function renderWizardStep() {
   document.getElementById('wizardContent').innerHTML = `
     <div class="wizard-card">
       <div class="wizard-nazev">${p.nazev}</div>
-      <div class="wizard-sub">${p.kategorie} · ${p.dodavatel||''} · ${p.umisteni||'umístění nezadáno'}</div>
+      <div class="wizard-sub">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||''} · ${p.umisteni||'umístění nezadáno'}</div>
       <div style="text-align:center;margin-bottom:8px;font-size:13px;color:#888">Aktuální stav: <strong>${p.mnozstvi!==null?p.mnozstvi+' ks':'nezadáno'}</strong> · min. ${p.minimum} ks</div>
       <input class="wizard-input-big" id="wizardInput" type="number" min="0" placeholder="${p.mnozstvi!==null?p.mnozstvi:'0'}">
       <div class="wizard-actions">
@@ -1230,6 +1232,7 @@ function renderSprava(query) {
   document.getElementById('spravaBody').innerHTML = results.map(p => `<tr>
     <td><div class="td-name">${p.nazev}</div></td>
     <td>${p.kategorie||'—'}</td>
+    <td>${p.podkategorie||'—'}</td>
     <td>${p.ksVBaleni}</td>
     <td>${p.minimum} ks</td>
     <td>${p.umisteni||'—'}</td>
@@ -1588,7 +1591,7 @@ function zobrazNeznamyEAN(ean) {
       <div class="alert-row" style="cursor:pointer" onclick="priraditEANKProduktu(${p.row}, '${ean}', '${p.nazev.replace(/'/g,"\\'")}')">
         <div class="alert-info">
           <div class="alert-name">${p.nazev}</div>
-          <div class="alert-detail">${p.kategorie||''} · ${p.dodavatel||''}</div>
+          <div class="alert-detail">${p.kategorie||''}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||''}</div>
         </div>
       </div>`).join('') || '<div class="empty" style="padding:12px">Nic nenalezeno</div>';
   });
@@ -1713,6 +1716,7 @@ function mistnostKarta(nazev, produkty) {
         return `<tr onclick="openDetail(${p.row})" style="cursor:pointer">
           <td><div class="td-name">${p.nazev}</div></td>
           <td>${p.kategorie||'—'}</td>
+          <td>${p.podkategorie||'—'}</td>
           <td><span class="badge ${bc}">${bt}</span></td>
           <td>${p.minimum||'—'} ks</td>
         </tr>`;
@@ -1726,7 +1730,7 @@ function mistnostKarta(nazev, produkty) {
       </div>
       ${produkty.length
         ? `<div class="table-wrap"><table>
-            <thead><tr><th>Název</th><th>Kategorie</th><th>Stav</th><th>Minimum</th></tr></thead>
+            <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Stav</th><th>Minimum</th></tr></thead>
             <tbody>${radky}</tbody>
           </table></div>`
         : '<div class="empty" style="padding:16px">Nic tu není naskladněno</div>'}
@@ -1790,11 +1794,12 @@ function renderNakup() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Název</th><th>Kategorie</th><th>Na skladě</th><th>Minimum</th><th>Chybí</th><th>Objednat</th><th>Priorita</th></tr></thead>
+            <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Na skladě</th><th>Minimum</th><th>Chybí</th><th>Objednat</th><th>Priorita</th></tr></thead>
             <tbody>
               ${produkty.map(p => `<tr onclick="openDetail(${p.row})" style="cursor:pointer">
                 <td><div class="td-name">${p.nazev}</div></td>
                 <td>${p.kategorie||'—'}</td>
+                <td>${p.podkategorie||'—'}</td>
                 <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ks</span></td>
                 <td>${p.minimum} ks</td>
                 <td style="font-weight:500;color:#E24B4A">${p.chybi} ks</td>
@@ -1816,12 +1821,12 @@ function exportNakupCsv() {
   );
   if (!potrebuje.length) { alert('Není co exportovat'); return; }
 
-  const rows = [['Název','Kategorie','Dodavatel','Na skladě','Minimum','Chybí (ks)','Objednat (bal)','Priorita']];
+  const rows = [['Název','Kategorie','Podkategorie','Dodavatel','Na skladě','Minimum','Optimum','Chybí (ks)','Objednat (bal)','Priorita']];
   potrebuje.forEach(p => {
     const chybi = Math.max(0, p.optimum - p.mnozstvi);
     const baleni = Math.ceil(chybi / p.ksVBaleni);
     rozdelDodavatele(p.dodavatel).forEach(d => {
-      rows.push([p.nazev, p.kategorie, d, p.mnozstvi, p.minimum, p.optimum, chybi, baleni, p.alert==='kriticky'?'Kritické':'Nízký stav']);
+      rows.push([p.nazev, p.kategorie, p.podkategorie||'', d, p.mnozstvi, p.minimum, p.optimum, chybi, baleni, p.alert==='kriticky'?'Kritické':'Nízký stav']);
     });
   });
 
