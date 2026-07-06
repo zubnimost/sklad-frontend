@@ -625,6 +625,14 @@ tr:hover td{background:#fafafa;cursor:pointer}
         <div class="form-group"><label class="form-label">Dodavatel</label><input class="form-input" id="ef_dodavatel" placeholder="Dentamed, Henry Schein..."></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label class="form-label">Podkategorie</label>
+          <select class="form-select" id="ef_podkategorie">
+            <option value="">— Nevybráno —</option>
+          </select>
+        </div>
+        <div class="form-group"></div>
+      </div>
+      <div class="form-row">
         <div class="form-group"><label class="form-label">Ks v balení</label><input class="form-input" id="ef_ksVBaleni" type="number" min="1" value="1"></div>
         <div class="form-group"><label class="form-label">Minimum (ks)</label><input class="form-input" id="ef_minimum" type="number" min="0" value="1"></div>
       </div>
@@ -710,7 +718,32 @@ function startApp() {
     document.getElementById('appRoot').style.display = 'flex';
     initSearch();
   });
+  nactiKategorie();
 }
+
+// Mapa Kategorie -> [Podkategorie, ...], natazena z listu "Kategorie".
+// Prazdna, dokud si tam uzivatel sam nedopise radky — appka pak jen
+// nenabidne zadnou Podkategorii u prislusne Kategorie.
+let kategorieMapa = {};
+
+function nactiKategorie() {
+  callBackend('getKategorie')
+    .then(function(mapa) { kategorieMapa = mapa || {}; })
+    .catch(function(e) { console.error(e); });
+}
+
+// Naplni #ef_podkategorie podle aktualne vybrane #ef_kategorie.
+// vybranaHodnota (nepovinne) se pokusi po naplneni znovu nastavit (pro editaci).
+function obnovPodkategorie(vybranaHodnota) {
+  const kategorie = document.getElementById('ef_kategorie').value;
+  const moznosti = kategorieMapa[kategorie] || [];
+  const sel = document.getElementById('ef_podkategorie');
+  sel.innerHTML = '<option value="">— Nevybráno —</option>' +
+    moznosti.map(function(m) { return `<option>${m}</option>`; }).join('');
+  if (vybranaHodnota && moznosti.includes(vybranaHodnota)) sel.value = vybranaHodnota;
+}
+
+document.getElementById('ef_kategorie').addEventListener('change', function() { obnovPodkategorie(); });
 
 // Nacte seznam jmen z listu "Zaměstnanci" (bez PINu, viz doPost) a naplni
 // jim picklist na prihlasovaci obrazovce.
@@ -1004,6 +1037,7 @@ function renderDetailPanel(p) {
       ${df('Minimum',p.minimum+' ks')}
       ${df('Optimum',p.optimum+' ks')}
       ${df('Kategorie',p.kategorie)}
+      ${p.podkategorie ? df('Podkategorie',p.podkategorie) : ''}
       ${df('Dodavatel',p.dodavatel)}
       ${df('Umístění',p.umisteni||'—')}
       ${p.expirace ? df('Expirace',p.expirace) : ''}
@@ -1272,6 +1306,7 @@ function showAddModal() {
   document.getElementById('ef_minimum').value = 1;
   document.getElementById('ef_optimum').value = 2;
   document.getElementById('ef_typ').value = 'inventurní';
+  obnovPodkategorie();
   document.getElementById('editModalOverlay').classList.add('open');
 }
 
@@ -1290,6 +1325,7 @@ function showEditModal(rowIndex) {
   document.getElementById('ef_typ').value = p.typ || 'inventurní';
   document.getElementById('ef_poznamka_edit').value = p.poznamka || '';
   document.getElementById('ef_ean').value = p.ean || '';
+  obnovPodkategorie(p.podkategorie);
   document.getElementById('editModalOverlay').classList.add('open');
 }
 
@@ -1313,6 +1349,7 @@ function kopirovatProdukt(rowIndex) {
   document.getElementById('ef_typ').value = p.typ || 'inventurní';
   document.getElementById('ef_poznamka_edit').value = p.poznamka || '';
   document.getElementById('ef_ean').value = p.ean || '';
+  obnovPodkategorie(p.podkategorie);
   document.getElementById('editModalOverlay').classList.add('open');
 }
 
@@ -1321,6 +1358,7 @@ function saveProdukt() {
   if (!nazev) { alert('Zadej název produktu'); return; }
   const data = {
     nazev, kategorie: document.getElementById('ef_kategorie').value,
+    podkategorie: document.getElementById('ef_podkategorie').value,
     dodavatel: document.getElementById('ef_dodavatel').value,
     ksVBaleni: parseInt(document.getElementById('ef_ksVBaleni').value) || 1,
     minimum: parseInt(document.getElementById('ef_minimum').value) || 1,
