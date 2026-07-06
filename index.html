@@ -677,7 +677,7 @@ let searchTimeout = null;
 let spravaTimeout = null;
 
 // ── AUTH / BACKEND ────────────────────────────────────
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzDP6cOxb0Gfoelmzn-gMxicdr0Gjrjn5Fe6NCfoefJij2111m1K3HStcde6OfS9cPo/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyPBa5ywY4spGBaEKBQLTlSF2cewg5H2W4oySyA1teufrjXMZIVgc1JmpsrWKIRlkrr/exec';
 
 // PIN se pamatuje jen v pameti (ne v sessionStorage) — prezije reload
 // stranky, ale NE zavreni a znovuotevreni appky (na mobilu se sessionStorage
@@ -1625,8 +1625,8 @@ function pokracovatSkenovani() {
 
 function recalcAlert(p) {
   if (p.mnozstvi === null) { p.alert = 'neznamy'; return; }
-  if (p.mnozstvi === 0) p.alert = 'kriticky';
-  else if (p.minimum && p.mnozstvi <= p.minimum) p.alert = 'nizky';
+  if (p.mnozstvi <= p.minimum) p.alert = 'kriticky';
+  else if (p.mnozstvi < p.optimum) p.alert = 'nizky';
   else p.alert = 'ok';
 }
 
@@ -1767,11 +1767,15 @@ function sesbiratKObjednani() {
   const skupiny = {};
   allProducts.forEach(p => {
     const key = p.nazev.toLowerCase().trim();
-    if (!skupiny[key]) skupiny[key] = { mnozstviSoucet: 0, minimumSoucet: 0, optimumSoucet: 0, zaznamy: [] };
+    if (!skupiny[key]) skupiny[key] = { mnozstviSoucet: 0, minimumSoucet: 0, optimumSoucet: 0, zaznamy: [], nejhorsiAlert: 'ok' };
     if (p.mnozstvi !== null) skupiny[key].mnozstviSoucet += p.mnozstvi;
     skupiny[key].minimumSoucet += p.minimum;
     skupiny[key].optimumSoucet += p.optimum;
     skupiny[key].zaznamy.push(p);
+    // Alert je ted per misto — pro souhrnny radek v nakupnim seznamu
+    // pouzijeme nejhorsi (nejnaléhavější) alert napric vsemi misty.
+    if (p.alert === 'kriticky') skupiny[key].nejhorsiAlert = 'kriticky';
+    else if (p.alert === 'nizky' && skupiny[key].nejhorsiAlert !== 'kriticky') skupiny[key].nejhorsiAlert = 'nizky';
   });
 
   const zpracovano = {};
@@ -1793,7 +1797,8 @@ function sesbiratKObjednani() {
       optimum: s.optimumSoucet,
       chybi: chybi,
       baleni: baleni,
-      mista: mista
+      mista: mista,
+      alert: s.nejhorsiAlert
     }));
   });
   return vysledek;
