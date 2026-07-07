@@ -677,7 +677,7 @@ let searchTimeout = null;
 let spravaTimeout = null;
 
 // ── AUTH / BACKEND ────────────────────────────────────
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyPBa5ywY4spGBaEKBQLTlSF2cewg5H2W4oySyA1teufrjXMZIVgc1JmpsrWKIRlkrr/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycby_n3qcc44D_KXWyqWKXSVtMrezUcka1UH_KNgXvxEjf1CDAoQihUVedby-ARpDedfb/exec';
 
 // PIN se pamatuje jen v pameti (ne v sessionStorage) — prezije reload
 // stranky, ale NE zavreni a znovuotevreni appky (na mobilu se sessionStorage
@@ -719,6 +719,7 @@ function startApp() {
     initSearch();
   });
   nactiKategorie();
+  nactiSdruzene();
 }
 
 // Mapa Kategorie -> [Podkategorie, ...], natazena z listu "Kategorie".
@@ -730,6 +731,34 @@ function nactiKategorie() {
   callBackend('getKategorie')
     .then(function(mapa) { kategorieMapa = mapa || {}; })
     .catch(function(e) { console.error(e); });
+}
+
+// Konfigurace sdruzenych podkategorii (rukavice/rousky apod.): mapa
+// lower(podkategorie) -> { nazev, minimum, optimum }. Produkty s takovou
+// podkategorii se pro alert i nakupni seznam pocitaji souhrnne pres vsechny
+// dodavatele i mistnosti (viz getSdruzenePodkategorie na backendu).
+let sdruzeneMapa = {};
+
+function nactiSdruzene() {
+  callBackend('getSdruzenePodkategorie')
+    .then(function(mapa) {
+      sdruzeneMapa = mapa || {};
+      // Data uz mohou byt nactena drive nez tahle konfigurace — po jejim
+      // prichodu prepocitej alerty a prekresli, aby se sdruzeni projevilo.
+      if (allProducts && allProducts.length) {
+        prepocitejAlerty(allProducts);
+        updateStats();
+        renderPrehled();
+        renderAlerty();
+      }
+    })
+    .catch(function(e) { console.error(e); });
+}
+
+// Vrati konfiguraci sdruzene podkategorie pro produkt, nebo null.
+function sdruzeniProProdukt(p) {
+  const klic = (p.podkategorie || '').toString().trim().toLowerCase();
+  return sdruzeneMapa[klic] || null;
 }
 
 // Naplni #ef_podkategorie podle aktualne vybrane #ef_kategorie.
@@ -1623,11 +1652,50 @@ function pokracovatSkenovani() {
   document.getElementById('skenerSub').textContent = 'Hledám kód...';
 }
 
+// Jadro vypoctu alertu z hodnot — musi presne odpovidat alertProRadek()
+// na backendu (dve hranice Minimum/Optimum).
+function alertZHodnot(mnozstvi, minimum, optimum) {
+  if (mnozstvi === null || mnozstvi === undefined) return 'neznamy';
+  if (mnozstvi <= minimum) return 'kriticky';
+  if (mnozstvi < optimum) return 'nizky';
+  return 'ok';
+}
+
 function recalcAlert(p) {
-  if (p.mnozstvi === null) { p.alert = 'neznamy'; return; }
-  if (p.mnozstvi <= p.minimum) p.alert = 'kriticky';
-  else if (p.mnozstvi < p.optimum) p.alert = 'nizky';
-  else p.alert = 'ok';
+  const cfg = sdruzeniProProdukt(p);
+  if (cfg) {
+    // Sdruzena podkategorie: alert ze souctu mnozstvi pres VSECHNY radky se
+    // stejnou podkategorii (napric dodavateli i mistnostmi), proti spolecne
+    // hranici z konfigurace. Stejny alert dostanou vsechny radky skupiny.
+    const klic = (p.podkategorie || '').toString().trim().toLowerCase();
+    const cleny = allProducts.filter(x => (x.podkategorie || '').toString().trim().toLowerCase() === klic);
+    let soucet = 0, maZname = false;
+    cleny.forEach(x => { if (x.mnozstvi !== null) { soucet += x.mnozstvi; maZname = true; } });
+    const alert = alertZHodnot(maZname ? soucet : null, cfg.minimum, cfg.optimum);
+    cleny.forEach(x => x.alert = alert);
+    return;
+  }
+  p.alert = alertZHodnot(p.mnozstvi, p.minimum, p.optimum);
+}
+
+// Prepocita alert u vsech produktu (per-radek i sdruzene skupiny). Pouziva
+// se po nacteni sdruzene konfigurace, ktera mohla dorazit az po datech.
+function prepocitejAlerty(list) {
+  list.forEach(p => { p.alert = alertZHodnot(p.mnozstvi, p.minimum, p.optimum); });
+  const pooly = {};
+  list.forEach(p => {
+    const cfg = sdruzeniProProdukt(p);
+    if (!cfg) return;
+    const klic = (p.podkategorie || '').toString().trim().toLowerCase();
+    if (!pooly[klic]) pooly[klic] = { cfg: cfg, soucet: 0, maZname: false, cleny: [] };
+    if (p.mnozstvi !== null) { pooly[klic].soucet += p.mnozstvi; pooly[klic].maZname = true; }
+    pooly[klic].cleny.push(p);
+  });
+  Object.keys(pooly).forEach(klic => {
+    const pool = pooly[klic];
+    const alert = alertZHodnot(pool.maZname ? pool.soucet : null, pool.cfg.minimum, pool.cfg.optimum);
+    pool.cleny.forEach(p => p.alert = alert);
+  });
 }
 
 function showSaving() {
@@ -1771,40 +1839,61 @@ function sesbiratKObjednani() {
   const skupiny = {};
   allProducts.forEach(p => {
     if (p.typ !== 'sledovaný') return;
-    const key = p.nazev.toLowerCase().trim();
-    if (!skupiny[key]) skupiny[key] = { mnozstviSoucet: 0, minimumSoucet: 0, optimumSoucet: 0, zaznamy: [], nejhorsiAlert: 'ok' };
-    if (p.mnozstvi !== null) skupiny[key].mnozstviSoucet += p.mnozstvi;
-    skupiny[key].minimumSoucet += p.minimum;
-    skupiny[key].optimumSoucet += p.optimum;
-    skupiny[key].zaznamy.push(p);
-    // Alert je ted per misto — pro souhrnny radek v nakupnim seznamu
-    // pouzijeme nejhorsi (nejnaléhavější) alert napric vsemi misty.
-    if (p.alert === 'kriticky') skupiny[key].nejhorsiAlert = 'kriticky';
-    else if (p.alert === 'nizky' && skupiny[key].nejhorsiAlert !== 'kriticky') skupiny[key].nejhorsiAlert = 'nizky';
+    const cfg = sdruzeniProProdukt(p);
+    // Sdruzena podkategorie -> seskupit podle podkategorie (napric dodavateli
+    // i misty). Bezny produkt -> podle nazvu (jako dosud, soucet pres mista).
+    const klic = cfg
+      ? ('pk:' + p.podkategorie.toString().trim().toLowerCase())
+      : ('nm:' + p.nazev.toString().trim().toLowerCase());
+    if (!skupiny[klic]) skupiny[klic] = {
+      sdruzeno: !!cfg, cfg: cfg,
+      nazev: cfg ? cfg.nazev : p.nazev,
+      mnozstviSoucet: 0, minimumSoucet: 0, optimumSoucet: 0,
+      zaznamy: [], dodavatele: {}, nejhorsiAlert: 'ok'
+    };
+    const g = skupiny[klic];
+    if (p.mnozstvi !== null) g.mnozstviSoucet += p.mnozstvi;
+    g.minimumSoucet += p.minimum;
+    g.optimumSoucet += p.optimum;
+    g.zaznamy.push(p);
+    if (p.dodavatel) rozdelDodavatele(p.dodavatel).forEach(d => g.dodavatele[d] = true);
+    if (p.alert === 'kriticky') g.nejhorsiAlert = 'kriticky';
+    else if (p.alert === 'nizky' && g.nejhorsiAlert !== 'kriticky') g.nejhorsiAlert = 'nizky';
   });
 
-  const zpracovano = {};
   const vysledek = [];
-  allProducts.forEach(p => {
-    if (p.typ !== 'sledovaný' || p.mnozstvi === null || (p.alert !== 'kriticky' && p.alert !== 'nizky')) return;
-    const key = p.nazev.toLowerCase().trim();
-    if (zpracovano[key]) return;
-    zpracovano[key] = true;
-    const s = skupiny[key];
-    const chybi = Math.max(0, s.optimumSoucet - s.mnozstviSoucet);
-    const baleni = Math.ceil(chybi / p.ksVBaleni);
-    const mista = s.zaznamy
-      .map(z => (z.umisteni || 'bez umístění') + ': ' + (z.mnozstvi !== null ? z.mnozstvi : '?') + ' ks')
-      .join(' · ');
-    vysledek.push(Object.assign({}, p, {
-      mnozstvi: s.mnozstviSoucet,
-      minimum: s.minimumSoucet,
-      optimum: s.optimumSoucet,
+  Object.keys(skupiny).forEach(klic => {
+    const g = skupiny[klic];
+    if (g.nejhorsiAlert !== 'kriticky' && g.nejhorsiAlert !== 'nizky') return;
+    // Hranice: sdruzena skupina ma JEDNU spolecnou z konfigurace; bezny
+    // produkt scita minima/optima pres sva mista (jako dosud).
+    const minimum = g.sdruzeno ? g.cfg.minimum : g.minimumSoucet;
+    const optimum = g.sdruzeno ? g.cfg.optimum : g.optimumSoucet;
+    const chybi = Math.max(0, optimum - g.mnozstviSoucet);
+    // U sdruzenych se balení nepocita — kazdy dodavatel muze mit jinou
+    // velikost balení, takze "objednat X bal" by nedavalo smysl.
+    const baleni = g.sdruzeno ? null : Math.ceil(chybi / (g.zaznamy[0].ksVBaleni || 1));
+    const mista = g.zaznamy.map(z => {
+      const kde = g.sdruzeno
+        ? ((z.dodavatel || '?') + (z.umisteni ? ' / ' + z.umisteni : ''))
+        : (z.umisteni || 'bez umístění');
+      return kde + ': ' + (z.mnozstvi !== null ? z.mnozstvi : '?') + ' ks';
+    }).join(' · ');
+    vysledek.push({
+      id: g.zaznamy[0].id,
+      nazev: g.nazev,
+      kategorie: g.zaznamy[0].kategorie,
+      podkategorie: g.zaznamy[0].podkategorie,
+      dodavatel: g.sdruzeno ? Object.keys(g.dodavatele).sort().join(', ') : g.zaznamy[0].dodavatel,
+      sdruzeno: g.sdruzeno,
+      mnozstvi: g.mnozstviSoucet,
+      minimum: minimum,
+      optimum: optimum,
       chybi: chybi,
       baleni: baleni,
       mista: mista,
-      alert: s.nejhorsiAlert
-    }));
+      alert: g.nejhorsiAlert
+    });
   });
   return vysledek;
 }
@@ -1818,17 +1907,61 @@ function renderNakup() {
     return;
   }
 
+  const prioritaBadge = p => `<span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.alert==='kriticky'?'🔴 Kritické':'🟠 Nízký stav'}</span>`;
+  const radekHtml = p => `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
+    <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.mista}</div></td>
+    <td>${p.kategorie||'—'}</td>
+    <td>${p.podkategorie||'—'}</td>
+    <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ks</span></td>
+    <td>${p.minimum} ks</td>
+    <td style="font-weight:500;color:#E24B4A">${p.chybi} ks</td>
+    <td style="font-weight:600;color:#1D9E75">${p.baleni !== null ? p.baleni + ' bal' : '—'}</td>
+    <td>${prioritaBadge(p)}</td>
+  </tr>`;
+  const hlavicka = `<thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Na skladě (vše)</th><th>Minimum</th><th>Chybí</th><th>Objednat</th><th>Priorita</th></tr></thead>`;
+
+  document.getElementById('nakupSub').textContent = potrebuje.length + ' produktů k objednání';
+
+  let html = '';
+
+  // Sdruzene (zaměnitelné) polozky — jedna sekce, kazda polozka jednou,
+  // vypis dodavatelu u ni. Neni pod konkretniho dodavatele, protoze ji
+  // muzes koupit u vic z nich.
+  const sdruzene = potrebuje.filter(p => p.sdruzeno);
+  if (sdruzene.length) {
+    html += `
+      <div class="content-card full" style="margin-bottom:16px">
+        <div class="card-header">
+          <span>🔁 Zaměnitelné (více dodavatelů)</span>
+          <span style="font-size:12px;color:#888;font-weight:400">${sdruzene.length} položek</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Název</th><th>Dodavatelé</th><th>Na skladě (vše)</th><th>Minimum</th><th>Chybí</th><th>Priorita</th></tr></thead>
+            <tbody>
+              ${sdruzene.map(p => `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
+                <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.mista}</div></td>
+                <td>${p.dodavatel||'—'}</td>
+                <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ks</span></td>
+                <td>${p.minimum} ks</td>
+                <td style="font-weight:500;color:#E24B4A">${p.chybi} ks</td>
+                <td>${prioritaBadge(p)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  // Bezne polozky rozdelene po dodavatelich (jako dosud).
   const poDodavateli = {};
-  potrebuje.forEach(p => {
+  potrebuje.filter(p => !p.sdruzeno).forEach(p => {
     rozdelDodavatele(p.dodavatel).forEach(d => {
       if (!poDodavateli[d]) poDodavateli[d] = [];
       poDodavateli[d].push(p);
     });
   });
 
-  document.getElementById('nakupSub').textContent = potrebuje.length + ' produktů k objednání';
-
-  let html = '';
   Object.keys(poDodavateli).sort().forEach(dodavatel => {
     const produkty = poDodavateli[dodavatel];
     const eshopUrl = DODAVATEL_ESHOP[dodavatel];
@@ -1840,19 +1973,8 @@ function renderNakup() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Na skladě (vše)</th><th>Minimum</th><th>Chybí</th><th>Objednat</th><th>Priorita</th></tr></thead>
-            <tbody>
-              ${produkty.map(p => `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
-                <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.mista}</div></td>
-                <td>${p.kategorie||'—'}</td>
-                <td>${p.podkategorie||'—'}</td>
-                <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ks</span></td>
-                <td>${p.minimum} ks</td>
-                <td style="font-weight:500;color:#E24B4A">${p.chybi} ks</td>
-                <td style="font-weight:600;color:#1D9E75">${p.baleni} bal</td>
-                <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.alert==='kriticky'?'🔴 Kritické':'🟠 Nízký stav'}</span></td>
-              </tr>`).join('')}
-            </tbody>
+            ${hlavicka}
+            <tbody>${produkty.map(radekHtml).join('')}</tbody>
           </table>
         </div>
       </div>`;
@@ -1867,9 +1989,16 @@ function exportNakupCsv() {
 
   const rows = [['Název','Kategorie','Podkategorie','Dodavatel','Na skladě (vše)','Minimum','Optimum','Chybí (ks)','Objednat (bal)','Priorita','Rozpis po místech']];
   potrebuje.forEach(p => {
-    rozdelDodavatele(p.dodavatel).forEach(d => {
-      rows.push([p.nazev, p.kategorie, p.podkategorie||'', d, p.mnozstvi, p.minimum, p.optimum, p.chybi, p.baleni, p.alert==='kriticky'?'Kritické':'Nízký stav', p.mista]);
-    });
+    const baleniStr = p.baleni !== null ? p.baleni : '';
+    const priorita = p.alert==='kriticky'?'Kritické':'Nízký stav';
+    if (p.sdruzeno) {
+      // Sdruzena polozka jednou, s vypisem vsech dodavatelu (neduplikovat).
+      rows.push([p.nazev, p.kategorie, p.podkategorie||'', p.dodavatel, p.mnozstvi, p.minimum, p.optimum, p.chybi, baleniStr, priorita, p.mista]);
+    } else {
+      rozdelDodavatele(p.dodavatel).forEach(d => {
+        rows.push([p.nazev, p.kategorie, p.podkategorie||'', d, p.mnozstvi, p.minimum, p.optimum, p.chybi, baleniStr, priorita, p.mista]);
+      });
+    }
   });
 
   const csv = rows.map(r => r.map(c => {
