@@ -868,8 +868,8 @@ function loadPohyby() {
 function updateStats() {
   const total = allProducts.length;
   const sestavem = allProducts.filter(p => p.mnozstvi !== null).length;
-  const kriticky = allProducts.filter(p => p.alert === 'kriticky').length;
-  const nizky = allProducts.filter(p => p.alert === 'nizky').length;
+  const kriticky = allProducts.filter(p => p.typ === 'sledovaný' && p.alert === 'kriticky').length;
+  const nizky = allProducts.filter(p => p.typ === 'sledovaný' && p.alert === 'nizky').length;
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statSestavem').textContent = sestavem;
   document.getElementById('statKriticky').textContent = kriticky;
@@ -879,8 +879,8 @@ function updateStats() {
 
 // ── PŘEHLED ───────────────────────────────────────────
 function renderPrehled() {
-  const kriticky = allProducts.filter(p => p.alert === 'kriticky');
-  const nizky = allProducts.filter(p => p.alert === 'nizky');
+  const kriticky = allProducts.filter(p => p.typ === 'sledovaný' && p.alert === 'kriticky');
+  const nizky = allProducts.filter(p => p.typ === 'sledovaný' && p.alert === 'nizky');
   document.getElementById('prehledKriticky').innerHTML = kriticky.length
     ? kriticky.slice(0,8).map(p => alertRowHtml(p,'red')).join('')
     : '<div class="empty" style="padding:16px">Žádné kritické položky</div>';
@@ -951,8 +951,8 @@ function expiraceRowHtml(p) {
 
 // ── ALERTY ────────────────────────────────────────────
 function renderAlerty() {
-  const kriticky = allProducts.filter(p => p.alert === 'kriticky');
-  const nizky = allProducts.filter(p => p.alert === 'nizky');
+  const kriticky = allProducts.filter(p => p.typ === 'sledovaný' && p.alert === 'kriticky');
+  const nizky = allProducts.filter(p => p.typ === 'sledovaný' && p.alert === 'nizky');
   document.getElementById('alertyKriticky').innerHTML = kriticky.length
     ? kriticky.map(p => alertRowHtml(p,'red')).join('')
     : '<div class="empty" style="padding:20px">Žádné kritické položky 👍</div>';
@@ -1763,9 +1763,14 @@ const DODAVATEL_ESHOP = {
 // "chybi"/"objednat" se pocita SOUHRNNE za cely produkt (soucet mnozstvi
 // a optima pres vsechna mista), ne zvlast pro kazde misto. Jinak by appka
 // u produktu na 3 mistech navrhla objednat 3x vic, nez je skutecne potreba.
+// Do nakupniho seznamu logicky patri jen to, co appka prubezne sleduje
+// (typ 'sledovaný') — u 'inventurní' polozek se mnozstvi zjistuje jen
+// pri fyzicke inventure, takze mezitim by "chybi k objednani" bylo
+// nespolehlive.
 function sesbiratKObjednani() {
   const skupiny = {};
   allProducts.forEach(p => {
+    if (p.typ !== 'sledovaný') return;
     const key = p.nazev.toLowerCase().trim();
     if (!skupiny[key]) skupiny[key] = { mnozstviSoucet: 0, minimumSoucet: 0, optimumSoucet: 0, zaznamy: [], nejhorsiAlert: 'ok' };
     if (p.mnozstvi !== null) skupiny[key].mnozstviSoucet += p.mnozstvi;
@@ -1781,7 +1786,7 @@ function sesbiratKObjednani() {
   const zpracovano = {};
   const vysledek = [];
   allProducts.forEach(p => {
-    if (p.mnozstvi === null || (p.alert !== 'kriticky' && p.alert !== 'nizky')) return;
+    if (p.typ !== 'sledovaný' || p.mnozstvi === null || (p.alert !== 'kriticky' && p.alert !== 'nizky')) return;
     const key = p.nazev.toLowerCase().trim();
     if (zpracovano[key]) return;
     zpracovano[key] = true;
