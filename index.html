@@ -285,7 +285,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
         <div style="flex:1;overflow-y:auto">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Dodavatel</th><th>Umístění</th><th>Stav</th><th>Minimum</th><th>Optimum</th><th>Typ</th></tr></thead>
+              <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Dodavatel</th><th>Místnosti</th><th>Stav (vše)</th><th>Minimum</th><th>Optimum</th><th>Typ</th></tr></thead>
               <tbody id="searchBody"></tbody>
             </table>
           </div>
@@ -363,7 +363,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Ks v bal.</th><th>Minimum</th><th>Umístění</th><th>Typ</th><th></th></tr></thead>
+              <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Ks v bal.</th><th>Minimum</th><th>Místnosti</th><th>Typ</th><th></th></tr></thead>
               <tbody id="spravaBody"></tbody>
             </table>
           </div>
@@ -597,6 +597,8 @@ tr:hover td{background:#fafafa;cursor:pointer}
   <div class="modal">
     <div class="modal-title" id="modalTitle">Pohyb</div>
     <div class="modal-sub" id="modalSub"></div>
+    <div class="modal-input-label" style="font-size:13px;color:#666;margin-bottom:4px;text-align:center">Místnost</div>
+    <select class="form-select" id="modalMistnost" style="width:100%;margin-bottom:10px" onchange="aktualizujModalMistoStav()"></select>
     <div class="modal-input-label" id="modalInputLabel" style="font-size:13px;color:#666;margin-bottom:4px;text-align:center"></div>
     <input class="modal-input" id="modalInput" type="number" min="1" placeholder="0" oninput="aktualizujModalHint()">
     <div class="modal-input-hint" id="modalInputHint" style="font-size:13px;color:#1D9E75;font-weight:600;text-align:center;min-height:18px;margin-top:2px"></div>
@@ -643,19 +645,10 @@ tr:hover td{background:#fafafa;cursor:pointer}
         <div class="form-group"><label class="form-label">EAN kód</label><input class="form-input" id="ef_ean" placeholder="Nepovinné"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Umístění</label>
-          <select class="form-select" id="ef_umisteni">
-            <option value="">— Nevybráno —</option>
-            <option>Steril 1</option>
-            <option>Ordinace 1</option>
-            <option>Ordinace DH</option>
-            <option>Steril 2</option>
-            <option>Ordinace 2</option>
-          </select>
-        </div>
         <div class="form-group"><label class="form-label">Typ sledování</label>
           <select class="form-select" id="ef_typ"><option value="inventurní">Inventurní</option><option value="sledovaný">Sledovaný</option></select>
         </div>
+        <div class="form-group"></div>
       </div>
       <div class="form-group"><label class="form-label">Poznámka</label><input class="form-input" id="ef_poznamka_edit" placeholder="Volitelná poznámka"></div>
     </div>
@@ -679,7 +672,7 @@ let searchTimeout = null;
 let spravaTimeout = null;
 
 // ── AUTH / BACKEND ────────────────────────────────────
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxv51Qed1nq9E5WI9YfxkRbCuyuI75PcWAxi6TwfiLevsXzISGv8m6Ts1aoZvgg094Q/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxN0QKs5rM80ilOv37W3r4JuQmmIbT-72UQkJlDIsiVg4wdmoEn3sTGMDihPaoBa4rw/exec';
 
 // PIN se pamatuje jen v pameti (ne v sessionStorage) — prezije reload
 // stranky, ale NE zavreni a znovuotevreni appky (na mobilu se sessionStorage
@@ -1009,7 +1002,7 @@ function renderSearchResults(query) {
         (p.kategorie && p.kategorie.toLowerCase().includes(q)) ||
         (p.podkategorie && p.podkategorie.toLowerCase().includes(q)) ||
         (p.dodavatel && p.dodavatel.toLowerCase().includes(q)) ||
-        (p.umisteni && p.umisteni.toLowerCase().includes(q)) ||
+        (Object.keys(p.mistaMnozstvi||{}).some(m => m.toLowerCase().includes(q))) ||
         (p.ean && p.ean.toString().toLowerCase().includes(q))
       ).slice(0,50)
     : allProducts.slice(0,80);
@@ -1027,7 +1020,7 @@ function renderSearchResults(query) {
       <td>${p.kategorie||'—'}</td>
       <td>${p.podkategorie||'—'}</td>
       <td>${p.dodavatel||'—'}</td>
-      <td>${p.umisteni||'—'}</td>
+      <td style="font-size:12px">${mistaSeznam(p)}</td>
       <td><span class="badge ${bc}">${bt}</span></td>
       <td>${p.minimum||'—'} ${jedn}</td>
       <td>${p.optimum||'—'} ${jedn}</td>
@@ -1068,13 +1061,13 @@ function renderDetailPanel(p) {
       <button class="detail-action-btn btn-odpis" onclick="openPohybModal('odpis')">🗑 Odpis<br><span style="font-size:11px;font-weight:400">expir./ztráta</span></button>
       <button class="detail-action-btn btn-inventura-small" onclick="openInventuraModal()">📋 Zadat skutečný stav</button>
     </div>
+    ${rozpadMistHtml(p)}
     <div class="detail-fields">
       ${df('Minimum',p.minimum+' '+jedn)}
       ${df('Optimum',p.optimum+' '+jedn)}
       ${df('Kategorie',p.kategorie)}
       ${p.podkategorie ? df('Podkategorie',p.podkategorie) : ''}
       ${df('Dodavatel',p.dodavatel)}
-      ${df('Umístění',p.umisteni||'—')}
       ${p.expirace ? df('Expirace',p.expirace) : ''}
       ${p.cenaBal ? df('Cena / balení',Math.round(p.cenaBal)+' Kč') : ''}
       ${df('Ks v balení',p.ksVBaleni+' ks')}
@@ -1084,8 +1077,21 @@ function renderDetailPanel(p) {
     </div>
 <div style="display:flex;gap:8px;margin-top:8px">
   <button class="btn" style="flex:1;justify-content:center" onclick="showEditModal(${p.id})">Upravit produkt</button>
-  <button class="btn" style="flex:1;justify-content:center" onclick="kopirovatProdukt(${p.id})">📋 Kopírovat na jiné místo</button>
 </div>`;
+}
+
+// Rozpad mnozstvi po mistnostech pro detail produktu.
+function rozpadMistHtml(p) {
+  const jedn = jednProd(p);
+  const m = mistaProduktu(p);
+  const radky = SKLADOVA_MISTA
+    .filter(mi => m[mi] !== undefined && m[mi] !== '')
+    .map(mi => `<div class="detail-field-row"><span class="detail-field-label">${mi}</span><span class="detail-field-val">${m[mi]} ${jedn}</span></div>`)
+    .join('');
+  return `<div class="detail-fields" style="margin-bottom:8px">
+    <div class="detail-field-row" style="font-weight:600"><span class="detail-field-label">Rozpis po místnostech</span><span class="detail-field-val"></span></div>
+    ${radky || '<div class="detail-field-row"><span class="detail-field-label" style="color:#888">Zatím nikde naskladněno</span><span class="detail-field-val"></span></div>'}
+  </div>`;
 }
 
 function df(label, val) {
@@ -1118,14 +1124,66 @@ function aktualizujModalHint() {
   }
 }
 
+// ── Pomocnici pro mnozstvi po mistnostech ──
+function mistaProduktu(p) { return (p && p.mistaMnozstvi) ? p.mistaMnozstvi : {}; }
+
+// Kompaktni vypis mistnosti se zasobou, napr. "Steril 1 (2), Ordinace 1 (1)".
+function mistaSeznam(p) {
+  const m = mistaProduktu(p);
+  const parts = SKLADOVA_MISTA.filter(mi => m[mi] !== undefined && m[mi] !== '').map(mi => mi + ' (' + m[mi] + ')');
+  return parts.join(', ') || '—';
+}
+
+// Vychozi mistnost pro modal. U vydeje = prvni misto se zasobou. U prijmu =
+// jedina mistnost se zasobou (jinak prvni v seznamu).
+function vychoziMistnost(p, proVydej) {
+  const m = mistaProduktu(p);
+  const seZasobou = Object.keys(m).filter(k => (parseFloat(m[k]) || 0) > 0);
+  if (proVydej) return seZasobou[0] || Object.keys(m)[0] || SKLADOVA_MISTA[0];
+  return seZasobou.length === 1 ? seZasobou[0] : (SKLADOVA_MISTA[0]);
+}
+
+function naplnMistnostSelect(p, vychozi) {
+  const sel = document.getElementById('modalMistnost');
+  const m = mistaProduktu(p);
+  sel.innerHTML = SKLADOVA_MISTA.map(function(mi) {
+    const q = (m[mi] !== undefined && m[mi] !== '') ? ' (' + m[mi] + ')' : '';
+    return '<option value="' + mi + '"' + (mi === vychozi ? ' selected' : '') + '>' + mi + q + '</option>';
+  }).join('');
+}
+
+// Nastavi mnozstvi produktu v jedne mistnosti a prepocita celkovy stav.
+function nastavMistoProduktu(p, mistnost, novaMisto) {
+  if (!p.mistaMnozstvi) p.mistaMnozstvi = {};
+  p.mistaMnozstvi[mistnost] = novaMisto;
+  let t = 0, zn = false;
+  Object.keys(p.mistaMnozstvi).forEach(function(k) {
+    const v = p.mistaMnozstvi[k];
+    if (v !== null && v !== undefined && v !== '') { t += parseFloat(v) || 0; zn = true; }
+  });
+  p.mnozstvi = zn ? t : null;
+  recalcAlert(p);
+}
+
+// Aktualni stav vybrane mistnosti pod selectem (info radek).
+function aktualizujModalMistoStav() {
+  if (!currentProduct) return;
+  const mistnost = document.getElementById('modalMistnost').value;
+  const m = mistaProduktu(currentProduct);
+  const stav = (m[mistnost] !== undefined && m[mistnost] !== '') ? m[mistnost] : 0;
+  const sub = document.getElementById('modalSub');
+  if (sub) sub.textContent = currentProduct.nazev + ' · v „' + mistnost + '" je teď ' + stav + ' ' + jednProd(currentProduct);
+}
+
 function openPohybModal(typ) {
   if (!currentProduct) return;
   const jeVydej = (typ === 'výdej' || typ === 'odpis');
   const jedn = jednProd(currentProduct);
   const labels = {'příjem':'Příjem na sklad','výdej':'Výdej ze skladu','odpis':'Odpis (expirováno / ztráta)'};
   document.getElementById('modalTitle').textContent = labels[typ];
-  document.getElementById('modalSub').textContent = currentProduct.nazev + ' · aktuálně: ' + (currentProduct.mnozstvi !== null ? currentProduct.mnozstvi+' '+jedn : 'nezadáno');
   modalKsVBaleni = currentProduct.ksVBaleni || 1;
+  naplnMistnostSelect(currentProduct, vychoziMistnost(currentProduct, jeVydej));
+  aktualizujModalMistoStav();
   document.getElementById('modalInput').value = 1;
   document.getElementById('modalInput').min = 1;
   document.getElementById('modalInputLabel').textContent =
@@ -1136,33 +1194,29 @@ function openPohybModal(typ) {
   pozEl.style.display = 'block';
   pozEl.placeholder = typ === 'odpis' ? 'Důvod odpisu...' : 'Poznámka (volitelné)';
   pozEl.value = '';
-  modalCallback = function(pocet) {
+  modalCallback = function(pocet, mistnost) {
     const zmena = jeVydej ? -pocet : pocet;
-    if (jeVydej && currentProduct.mnozstvi !== null && pocet > currentProduct.mnozstvi) {
-      if (!confirm('Upozornění: odebíráš '+pocet+' '+jedn+' ale na skladě je jen '+currentProduct.mnozstvi+' '+jedn+'. Pokračovat?')) return;
+    const vMiste = parseFloat(mistaProduktu(currentProduct)[mistnost]) || 0;
+    if (jeVydej && pocet > vMiste) {
+      if (!confirm('Upozornění: odebíráš '+pocet+' '+jedn+' z „'+mistnost+'", ale je tam jen '+vMiste+' '+jedn+'. Pokračovat?')) return;
     }
     const poznamka = document.getElementById('modalPoznamka').value || '';
     const id = currentProduct.id;
-    const puvodniMnozstvi = currentProduct.mnozstvi;
-    const odhadovaneNoveMnozstvi = Math.max(0, (puvodniMnozstvi || 0) + zmena);
+    const puvodniMisto = vMiste;
+    const odhadMisto = Math.max(0, vMiste + zmena);
 
-    // OKAMŽITĚ aktualizuj UI (optimisticky)
-    rychlaAktualizace(id, odhadovaneNoveMnozstvi);
+    rychlaAktualizace(id, mistnost, odhadMisto);
     showSaving();
-
-    // Na pozadí zapiš na server
-    callBackend('updateMnozstvi', { id: id, zmena: zmena, typ: typ, poznamka: poznamka })
+    callBackend('updateMnozstvi', { id: id, mistnost: mistnost, zmena: zmena, typ: typ, poznamka: poznamka })
       .then(function(res) {
         hideSaving();
-        // Pokud server vrátil jinou hodnotu než odhad, oprav
-        if (res.noveMnozstvi !== odhadovaneNoveMnozstvi) {
-          rychlaAktualizace(id, res.noveMnozstvi);
-        }
+        if (res && res.success === false) { alert('Chyba: ' + res.error); rychlaAktualizace(id, mistnost, puvodniMisto); return; }
+        if (res.noveMnozstviMisto !== odhadMisto) rychlaAktualizace(id, mistnost, res.noveMnozstviMisto);
       })
       .catch(function(e){
         hideSaving();
         alert('Chyba při ukládání: ' + e.message + ' — vrácena původní hodnota.');
-        rychlaAktualizace(id, puvodniMnozstvi);
+        rychlaAktualizace(id, mistnost, puvodniMisto);
       });
   };
   document.getElementById('modalOverlay').classList.add('open');
@@ -1173,36 +1227,35 @@ function openInventuraModal() {
   if (!currentProduct) return;
   const jedn = jednProd(currentProduct);
   document.getElementById('modalTitle').textContent = 'Zadat skutečný stav';
-  document.getElementById('modalSub').textContent = currentProduct.nazev;
   modalKsVBaleni = currentProduct.ksVBaleni || 1;
-  document.getElementById('modalInput').value = currentProduct.mnozstvi !== null ? currentProduct.mnozstvi : '';
+  naplnMistnostSelect(currentProduct, vychoziMistnost(currentProduct, false));
+  aktualizujModalMistoStav();
+  const vychMisto = document.getElementById('modalMistnost').value;
+  const stavMista = mistaProduktu(currentProduct)[vychMisto];
+  document.getElementById('modalInput').value = (stavMista !== undefined && stavMista !== '') ? stavMista : '';
   document.getElementById('modalInput').min = 0;
   document.getElementById('modalInputLabel').textContent =
-    'Kolik ' + jedn + ' celkem?' +
-    (modalKsVBaleni > 1 ? ' (1 ' + jedn + ' = ' + modalKsVBaleni + ' ks)' : '');
+    'Skutečný stav v místnosti (' + jedn + ')' +
+    (modalKsVBaleni > 1 ? ' · 1 ' + jedn + ' = ' + modalKsVBaleni + ' ks' : '');
   aktualizujModalHint();
   document.getElementById('modalPoznamka').style.display = 'none';
   document.getElementById('modalPoznamka').value = '';
-  modalCallback = function(val) {
+  modalCallback = function(val, mistnost) {
     const id = currentProduct.id;
-    const puvodniMnozstvi = currentProduct.mnozstvi;
+    const puvodniMisto = parseFloat(mistaProduktu(currentProduct)[mistnost]) || 0;
 
-    // OKAMŽITĚ aktualizuj UI
-    rychlaAktualizace(id, val);
+    rychlaAktualizace(id, mistnost, val);
     showSaving();
-
-    // Na pozadí zapiš na server
-    callBackend('setMnozstvi', { id: id, hodnota: val, poznamka: 'ruční inventura' })
+    callBackend('setMnozstvi', { id: id, mistnost: mistnost, hodnota: val, poznamka: 'ruční inventura' })
       .then(function(res) {
         hideSaving();
-        if (res.noveMnozstvi !== val) {
-          rychlaAktualizace(id, res.noveMnozstvi);
-        }
+        if (res && res.success === false) { alert('Chyba: ' + res.error); rychlaAktualizace(id, mistnost, puvodniMisto); return; }
+        if (res.noveMnozstviMisto !== val) rychlaAktualizace(id, mistnost, res.noveMnozstviMisto);
       })
       .catch(function(e){
         hideSaving();
         alert('Chyba při ukládání: ' + e.message + ' — vrácena původní hodnota.');
-        rychlaAktualizace(id, puvodniMnozstvi);
+        rychlaAktualizace(id, mistnost, puvodniMisto);
       });
   };
   document.getElementById('modalOverlay').classList.add('open');
@@ -1217,10 +1270,12 @@ function closeModal() {
 function confirmModal() {
   const val = parseInt(document.getElementById('modalInput').value);
   if (isNaN(val) || val < 0) { alert('Zadej platné číslo'); return; }
+  const mistnost = document.getElementById('modalMistnost').value;
+  if (!mistnost) { alert('Vyber místnost'); return; }
   const cb = modalCallback;
   modalCallback = null;
   document.getElementById('modalOverlay').classList.remove('open');
-  if (cb) cb(val);
+  if (cb) cb(val, mistnost);
 }
 
 // ── POHYBY ────────────────────────────────────────────
@@ -1274,24 +1329,39 @@ function renderWizardStep() {
   const pct = Math.round((wizardIndex / total) * 100);
   document.getElementById('wizardBar').style.width = pct + '%';
   document.getElementById('wizardMeta').textContent = (wizardIndex+1)+' / '+total+' produktů';
-  const stavText = p.mnozstvi !== null
-    ? p.mnozstvi + ' ' + jedn + (ksb > 1 ? ' (' + (p.mnozstvi * ksb) + ' ks)' : '')
-    : 'nezadáno';
-  const label = 'Kolik ' + jedn + ' celkem?' + (ksb > 1 ? ' (1 ' + jedn + ' = ' + ksb + ' ks)' : '');
+  const vych = vychoziMistnost(p, false);
+  const mistOptions = SKLADOVA_MISTA.map(mi => {
+    const m = mistaProduktu(p);
+    const q = (m[mi] !== undefined && m[mi] !== '') ? ' (' + m[mi] + ')' : '';
+    return '<option value="' + mi + '"' + (mi === vych ? ' selected' : '') + '>' + mi + q + '</option>';
+  }).join('');
+  const label = 'Skutečný stav v místnosti (' + jedn + ')' + (ksb > 1 ? ' · 1 ' + jedn + ' = ' + ksb + ' ks' : '');
   document.getElementById('wizardContent').innerHTML = `
     <div class="wizard-card">
       <div class="wizard-nazev">${p.nazev}</div>
-      <div class="wizard-sub">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||''} · ${p.umisteni||'umístění nezadáno'}</div>
-      <div style="text-align:center;margin-bottom:8px;font-size:13px;color:#888">Aktuální stav: <strong>${stavText}</strong> · min. ${p.minimum} ${jedn}</div>
+      <div class="wizard-sub">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||''} · celkem ${p.mnozstvi!==null?p.mnozstvi+' '+jedn:'nezadáno'}</div>
+      <div style="text-align:center;margin:8px 0 4px;font-size:13px;color:#666">Místnost</div>
+      <select class="form-select" id="wizardMistnost" style="width:100%;margin-bottom:10px" onchange="wizardMistoZmena(${ksb})">${mistOptions}</select>
       <div style="text-align:center;margin-bottom:4px;font-size:13px;color:#666">${label}</div>
-      <input class="wizard-input-big" id="wizardInput" type="number" min="0" placeholder="${p.mnozstvi!==null?p.mnozstvi:'0'}" oninput="aktualizujWizardHint(${ksb})">
+      <input class="wizard-input-big" id="wizardInput" type="number" min="0" placeholder="0" oninput="aktualizujWizardHint(${ksb})">
       <div id="wizardHint" style="text-align:center;font-size:13px;color:#1D9E75;font-weight:600;min-height:18px;margin-bottom:8px"></div>
       <div class="wizard-actions">
         <button class="wizard-skip" onclick="wizardSkip()">Přeskočit</button>
         <button class="wizard-next" onclick="wizardNext()">Uložit a další →</button>
       </div>
     </div>`;
+  wizardMistoZmena(ksb);
   setTimeout(() => { const i = document.getElementById('wizardInput'); if(i) i.focus(); }, 100);
+}
+
+// Po zmene mistnosti ve wizardu predvypln aktualni stav te mistnosti.
+function wizardMistoZmena(ksb) {
+  const p = wizardQueue[wizardIndex];
+  if (!p) return;
+  const mistnost = document.getElementById('wizardMistnost').value;
+  const stav = mistaProduktu(p)[mistnost];
+  document.getElementById('wizardInput').value = (stav !== undefined && stav !== '') ? stav : '';
+  aktualizujWizardHint(ksb);
 }
 
 function aktualizujWizardHint(ksb) {
@@ -1304,10 +1374,15 @@ function aktualizujWizardHint(ksb) {
 function wizardNext() {
   const inp = document.getElementById('wizardInput');
   const val = inp ? parseInt(inp.value) : NaN;
+  const mistnost = document.getElementById('wizardMistnost').value;
   if (isNaN(val) || val < 0) { wizardSkip(); return; }
   const p = wizardQueue[wizardIndex];
-  callBackend('setMnozstvi', { id: p.id, hodnota: val, poznamka: 'hromadná inventura' })
-    .then(function(res) { p.mnozstvi = res.noveMnozstvi; recalcAlert(p); updateStats(); })
+  callBackend('setMnozstvi', { id: p.id, mistnost: mistnost, hodnota: val, poznamka: 'hromadná inventura' })
+    .then(function(res) {
+      if (res && res.success === false) { ukazChybu('Neuložilo se: ' + p.nazev + ' — ' + res.error); return; }
+      nastavMistoProduktu(p, mistnost, res.noveMnozstviMisto);
+      updateStats();
+    })
     .catch(function(e) { console.error(e); ukazChybu('Neuložilo se: ' + p.nazev + ' — zkus to znovu přes vyhledávání.'); });
   wizardIndex++;
   renderWizardStep();
@@ -1325,7 +1400,7 @@ function renderSprava(query) {
     <td>${p.podkategorie||'—'}</td>
     <td>${p.ksVBaleni}</td>
     <td>${p.minimum} ${jednProd(p)}</td>
-    <td>${p.umisteni||'—'}</td>
+    <td style="font-size:12px">${mistaSeznam(p)}</td>
     <td><span class="badge ${p.typ==='sledovaný'?'badge-sledovany':'badge-inventurni'}">${p.typ}</span></td>
     <td style="white-space:nowrap">
       <button class="btn" style="padding:5px 8px;font-size:14px" onclick="toggleRadkoveMenu(event, ${p.id}, '${p.nazev.replace(/'/g,"\\'")}')">⋮</button>
@@ -1353,18 +1428,12 @@ function toggleRadkoveMenu(event, id, nazev) {
   upravitBtn.textContent = '✏️ Upravit';
   upravitBtn.onclick = function() { showEditModal(id); };
 
-  const kopirovatBtn = document.createElement('button');
-  kopirovatBtn.style.cssText = 'display:block;width:100%;padding:10px 16px;font-size:13px;color:#444;background:none;border:none;cursor:pointer;text-align:left;white-space:nowrap;border-top:1px solid #f0f0f0';
-  kopirovatBtn.textContent = '📋 Kopírovat na jiné místo';
-  kopirovatBtn.onclick = function() { kopirovatProdukt(id); };
-
   const smazatBtn = document.createElement('button');
   smazatBtn.style.cssText = 'display:block;width:100%;padding:10px 16px;font-size:13px;color:#E24B4A;background:none;border:none;cursor:pointer;text-align:left;white-space:nowrap;border-top:1px solid #f0f0f0';
   smazatBtn.textContent = '🗑 Smazat';
   smazatBtn.onclick = function() { smazatProduktZeSpravy(id, nazev); };
 
   menu.appendChild(upravitBtn);
-  menu.appendChild(kopirovatBtn);
   menu.appendChild(smazatBtn);
   document.body.appendChild(menu);
 }
@@ -1394,14 +1463,13 @@ document.getElementById('spravaSearch').addEventListener('input', function() {
 function showAddModal() {
   editingId = null;
   document.getElementById('editModalTitle').textContent = 'Přidat produkt';
-  ['nazev','dodavatel','umisteni','poznamka_edit','ean'].forEach(f => document.getElementById('ef_'+f).value = '');
+  ['nazev','dodavatel','poznamka_edit','ean'].forEach(f => document.getElementById('ef_'+f).value = '');
   document.getElementById('ef_ksVBaleni').value = 1;
   document.getElementById('ef_minimum').value = 1;
   document.getElementById('ef_optimum').value = 2;
   document.getElementById('ef_typ').value = 'inventurní';
   document.getElementById('ef_minimum_label').textContent = 'Minimum';
   document.getElementById('ef_optimum_label').textContent = 'Optimum';
-  kopirovanaJednotka = 'ks';
   obnovPodkategorie();
   document.getElementById('editModalOverlay').classList.add('open');
 }
@@ -1417,7 +1485,6 @@ function showEditModal(id) {
   document.getElementById('ef_ksVBaleni').value = p.ksVBaleni;
   document.getElementById('ef_minimum').value = p.minimum;
   document.getElementById('ef_optimum').value = p.optimum;
-  document.getElementById('ef_umisteni').value = p.umisteni || '';
   document.getElementById('ef_typ').value = p.typ || 'inventurní';
   document.getElementById('ef_poznamka_edit').value = p.poznamka || '';
   document.getElementById('ef_ean').value = p.ean || '';
@@ -1429,34 +1496,6 @@ function showEditModal(id) {
 
 function closeEditModal() { document.getElementById('editModalOverlay').classList.remove('open'); editingId = null; }
 
-// Predvyplni formular daty existujiciho produktu, ale jako NOVY produkt
-// (editingId = null) — Umisteni a mnozstvi zustavaji prazdne, protoze
-// jde o zalozeni stejneho produktu na jinem miste (nove sklad. jednotce).
-function kopirovatProdukt(id) {
-  const p = allProducts.find(x => x.id === id);
-  if (!p) return;
-  editingId = null;
-  document.getElementById('editModalTitle').textContent = 'Kopírovat produkt (nové umístění)';
-  document.getElementById('ef_nazev').value = p.nazev;
-  document.getElementById('ef_kategorie').value = p.kategorie || 'Spotřební materiál';
-  document.getElementById('ef_dodavatel').value = p.dodavatel || '';
-  document.getElementById('ef_ksVBaleni').value = p.ksVBaleni;
-  document.getElementById('ef_minimum').value = p.minimum;
-  document.getElementById('ef_optimum').value = p.optimum;
-  document.getElementById('ef_umisteni').value = '';
-  document.getElementById('ef_typ').value = p.typ || 'inventurní';
-  document.getElementById('ef_poznamka_edit').value = p.poznamka || '';
-  document.getElementById('ef_ean').value = p.ean || '';
-  document.getElementById('ef_minimum_label').textContent = 'Minimum (' + jednProd(p) + ')';
-  document.getElementById('ef_optimum_label').textContent = 'Optimum (' + jednProd(p) + ')';
-  kopirovanaJednotka = jednProd(p); // novy radek zdedi jednotku kopirovaneho produktu
-  obnovPodkategorie(p.podkategorie);
-  document.getElementById('editModalOverlay').classList.add('open');
-}
-
-// Jednotka, kterou dostane novy produkt zalozeny pres "Kopírovat" (jinak 'ks').
-let kopirovanaJednotka = 'ks';
-
 function saveProdukt() {
   const nazev = document.getElementById('ef_nazev').value.trim();
   if (!nazev) { alert('Zadej název produktu'); return; }
@@ -1467,7 +1506,6 @@ function saveProdukt() {
     ksVBaleni: parseInt(document.getElementById('ef_ksVBaleni').value) || 1,
     minimum: parseInt(document.getElementById('ef_minimum').value) || 1,
     optimum: parseInt(document.getElementById('ef_optimum').value) || 2,
-    umisteni: document.getElementById('ef_umisteni').value,
     typ: document.getElementById('ef_typ').value,
     poznamka: document.getElementById('ef_poznamka_edit').value,
     ean: document.getElementById('ef_ean').value.trim()
@@ -1492,7 +1530,6 @@ function saveProdukt() {
       })
       .catch(function(e) { alert('Chyba: ' + e.message); });
   } else {
-    data.jednotka = kopirovanaJednotka; // pri kopirovani zdedi jednotku, jinak 'ks'
     callBackend('pridatProdukt', { data: data })
       .then(function(res) {
         if (res && res.success === false) { alert('Chyba: ' + res.error); return; }
@@ -1588,11 +1625,7 @@ function zpracujNaskenovanyEAN(ean) {
   callBackend('najdiProduktPodleEAN', { ean: ean })
     .then(function(res) {
       if (!res.nalezeno) { zobrazNeznamyEAN(ean); return; }
-      if (res.shody && res.shody.length > 1) {
-        zobrazVyberUmisteni(res.shody, ean);
-      } else {
-        zobrazNalezenyProdukt(res.id, res.nazev, ean);
-      }
+      zobrazNalezenyProdukt(res.id, res.nazev, ean);
     })
     .catch(function(e) {
       document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + e.message + '</div>';
@@ -1600,73 +1633,59 @@ function zpracujNaskenovanyEAN(ean) {
     });
 }
 
-// Kdyz stejny EAN patri produktu na vic mistech (napr. Ordinace 1 i
-// Ordinace 2), necha uzivatele vybrat, ktere konkretni misto chce upravit.
-function zobrazVyberUmisteni(shody, ean) {
-  document.getElementById('skenerVysledek').innerHTML = `
-    <div class="content-card full" style="padding:20px">
-      <div style="text-align:center;margin-bottom:12px">
-        <div style="font-size:32px;margin-bottom:8px">✓</div>
-        <div style="font-size:16px;font-weight:600">${shody[0].nazev}</div>
-        <div style="font-size:12px;color:#888;margin-top:4px">Na kterém místě?</div>
-      </div>
-      ${shody.map(function(s) {
-        const nazevEsc = s.nazev.replace(/'/g, "\\'");
-        const jednS = jednProd(allProducts.find(x => x.id === s.id));
-        return `<div class="alert-row" style="cursor:pointer" onclick="zobrazNalezenyProdukt(${s.id}, '${nazevEsc}', '${ean}')">
-          <div class="alert-info">
-            <div class="alert-name">${s.umisteni || 'Umístění nezadáno'}</div>
-            <div class="alert-detail">${s.mnozstvi !== null ? s.mnozstvi + ' ' + jednS : 'nezadáno'}</div>
-          </div>
-        </div>`;
-      }).join('')}
-      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="pokracovatSkenovani()">Zrušit a skenovat další</button>
-    </div>`;
-}
-
 function zobrazNalezenyProdukt(id, nazev, ean) {
   const p = allProducts.find(x => x.id === id);
   const jedn = jednProd(p);
-  const stavText = p && p.mnozstvi !== null ? ` · aktuálně ${p.mnozstvi} ${jedn}` : '';
+  const m = mistaProduktu(p);
+  const seZasobou = SKLADOVA_MISTA.filter(mi => (parseFloat(m[mi]) || 0) > 0);
+  const nazevEsc = (nazev || '').replace(/'/g, "\\'");
+  // Rychly vydej 1 kus/baleni — u kazde mistnosti se zasobou vlastni tlacitko.
+  const vydejBtny = seZasobou.length
+    ? seZasobou.map(mi => `<button class="btn" style="width:100%;justify-content:center;background:#FAECE7;color:#993C1D;border-color:#F5C4B3;margin-bottom:6px" onclick="rychlyVydejZeSkeneru(${id}, '${mi.replace(/'/g,"\\'")}', '${nazevEsc}')">− Vydat 1 ${jedn} z „${mi}" (${m[mi]})</button>`).join('')
+    : '<div style="font-size:12px;color:#888;margin-bottom:8px">Žádná zásoba — otevři produkt a naskladni.</div>';
+  const stavText = p && p.mnozstvi !== null ? ` · celkem ${p.mnozstvi} ${jedn}` : '';
   document.getElementById('skenerVysledek').innerHTML = `
     <div class="content-card full" style="padding:20px;text-align:center">
       <div style="font-size:32px;margin-bottom:8px">✓</div>
       <div style="font-size:16px;font-weight:600;margin-bottom:4px">${nazev}</div>
       <div style="font-size:12px;color:#888;margin-bottom:16px">EAN: ${ean}${stavText}</div>
-      <button class="btn" style="width:100%;justify-content:center;background:#FAECE7;color:#993C1D;border-color:#F5C4B3;margin-bottom:8px" onclick="rychlyVydejZeSkeneru(${id})">− Vydat 1 ${jedn}</button>
-      <div style="display:flex;gap:8px">
+      ${vydejBtny}
+      <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="otevriZeSkeneru(${id})">Otevřít produkt</button>
         <button class="btn" style="flex:1;justify-content:center" onclick="pokracovatSkenovani()">Skenovat další</button>
       </div>
     </div>`;
 }
 
-// Rychly vydej 1 JEDNOTKY (1 balení / 1 ks — podle sloupce Jednotka) primo
-// z vysledku skenovani — pro sestricku u kresla, ktera nema cas otevirat
-// detail. Pro jine mnozstvi/prijem/odpis pouzij "Otevřít produkt".
-function rychlyVydejZeSkeneru(id) {
+// Rychly vydej 1 JEDNOTKY z konkretni mistnosti — pro sestricku u kresla,
+// ktera nema cas otevirat detail. Pro jine mnozstvi/prijem/odpis "Otevřít".
+function rychlyVydejZeSkeneru(id, mistnost, nazev) {
   const p = allProducts.find(x => x.id === id);
   if (!p) return;
   const jedn = jednProd(p);
-  const puvodniMnozstvi = p.mnozstvi;
-  const odhad = Math.max(0, (puvodniMnozstvi || 0) - 1);
+  const vMiste = parseFloat(mistaProduktu(p)[mistnost]) || 0;
+  const odhad = Math.max(0, vMiste - 1);
 
-  rychlaAktualizace(id, odhad);
+  rychlaAktualizace(id, mistnost, odhad);
   document.getElementById('skenerVysledek').innerHTML = '<div class="content-card full" style="padding:20px;text-align:center"><div class="spinner" style="margin:0 auto 12px"></div>Vydávám...</div>';
 
-  callBackend('updateMnozstvi', { id: id, zmena: -1, typ: 'výdej', poznamka: 'rychlý výdej ze skeneru' })
+  callBackend('updateMnozstvi', { id: id, mistnost: mistnost, zmena: -1, typ: 'výdej', poznamka: 'rychlý výdej ze skeneru' })
     .then(function(res) {
-      if (res.noveMnozstvi !== odhad) rychlaAktualizace(id, res.noveMnozstvi);
+      if (res && res.success === false) { rychlaAktualizace(id, mistnost, vMiste); ukazChybu('Chyba: ' + res.error); zobrazNalezenyProdukt(id, nazev, p.ean); return; }
+      if (res.noveMnozstviMisto !== odhad) rychlaAktualizace(id, mistnost, res.noveMnozstviMisto);
       document.getElementById('skenerVysledek').innerHTML = `
         <div class="content-card full" style="padding:20px;text-align:center">
           <div style="font-size:32px;margin-bottom:8px">✓</div>
           <div style="font-size:16px;font-weight:600;margin-bottom:4px">${p.nazev}</div>
-          <div style="font-size:13px;color:#993C1D;margin-bottom:16px">Vydáno 1 ${jedn} · nyní ${res.noveMnozstvi} ${jedn}</div>
-          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="pokracovatSkenovani()">Skenovat další</button>
+          <div style="font-size:13px;color:#993C1D;margin-bottom:16px">Vydáno 1 ${jedn} z „${mistnost}" · tam nyní ${res.noveMnozstviMisto} ${jedn}</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" style="flex:1;justify-content:center" onclick="zobrazNalezenyProdukt(${id}, '${(nazev||'').replace(/'/g,"\\'")}', '${p.ean||''}')">Vydat další</button>
+            <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="pokracovatSkenovani()">Skenovat další</button>
+          </div>
         </div>`;
     })
     .catch(function(e) {
-      rychlaAktualizace(id, puvodniMnozstvi);
+      rychlaAktualizace(id, mistnost, vMiste);
       document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + e.message + ' — vrácena původní hodnota.</div>';
     });
 }
@@ -1786,11 +1805,10 @@ function hideSaving() {
   if (el) el.innerHTML = '';
 }
 
-function rychlaAktualizace(id, noveMnozstvi) {
+function rychlaAktualizace(id, mistnost, novaMisto) {
   const p = allProducts.find(x => x.id === id);
   if (!p) return;
-  p.mnozstvi = noveMnozstvi;
-  recalcAlert(p);
+  nastavMistoProduktu(p, mistnost, novaMisto);
 
   updateStats();
   renderPrehled();
@@ -1835,49 +1853,38 @@ function ulozMinOptimum() {
 const SKLADOVA_MISTA = ['Steril 1', 'Ordinace 1', 'Ordinace DH', 'Steril 2', 'Ordinace 2'];
 
 function renderMistnosti() {
-  const poMiste = {};
-  SKLADOVA_MISTA.forEach(m => poMiste[m] = []);
-  const bezMista = [];
-
-  allProducts.forEach(p => {
-    const u = (p.umisteni || '').trim();
-    if (!u) { bezMista.push(p); return; }
-    if (!poMiste[u]) poMiste[u] = [];
-    poMiste[u].push(p);
-  });
-
-  const poradi = SKLADOVA_MISTA.concat(Object.keys(poMiste).filter(m => !SKLADOVA_MISTA.includes(m)));
-  let html = poradi.map(m => mistnostKarta(m, poMiste[m] || [])).join('');
-  if (bezMista.length) html += mistnostKarta('Bez umístění', bezMista);
-
+  // Do karty mistnosti patri produkt, ktery ma v te mistnosti vyplnene
+  // mnozstvi (sloupec mistnosti). Zobrazuje se mnozstvi te konkretni mistnosti.
+  let html = SKLADOVA_MISTA.map(function(m) {
+    const produkty = allProducts.filter(p => mistaProduktu(p)[m] !== undefined && mistaProduktu(p)[m] !== '');
+    return mistnostKarta(m, produkty);
+  }).join('');
   document.getElementById('mistnostiContent').innerHTML = html;
 }
 
-function mistnostKarta(nazev, produkty) {
+function mistnostKarta(mistnost, produkty) {
   const radky = produkty.length
     ? produkty.map(p => {
         const jedn = jednProd(p);
-        const ks = p.mnozstvi !== null ? p.mnozstvi : null;
-        const bc = p.alert==='kriticky' ? 'badge-zero' : p.alert==='nizky' ? 'badge-low' : ks!==null ? 'badge-ok' : 'badge-empty';
-        const bt = ks !== null ? ks+' '+jedn : '– '+jedn;
+        const vMiste = parseFloat(mistaProduktu(p)[mistnost]) || 0;
+        const bc = vMiste === 0 ? 'badge-zero' : 'badge-ok';
         return `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
           <td><div class="td-name">${p.nazev}</div></td>
           <td>${p.kategorie||'—'}</td>
           <td>${p.podkategorie||'—'}</td>
-          <td><span class="badge ${bc}">${bt}</span></td>
-          <td>${p.minimum||'—'} ${jedn}</td>
+          <td><span class="badge ${bc}">${vMiste} ${jedn}</span></td>
         </tr>`;
       }).join('')
     : '';
   return `
     <div class="content-card full" style="margin-bottom:16px">
       <div class="card-header">
-        <span>${nazev}</span>
+        <span>${mistnost}</span>
         <span style="font-size:12px;color:#888;font-weight:400">${produkty.length} položek</span>
       </div>
       ${produkty.length
         ? `<div class="table-wrap"><table>
-            <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Stav</th><th>Minimum</th></tr></thead>
+            <thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>V této místnosti</th></tr></thead>
             <tbody>${radky}</tbody>
           </table></div>`
         : '<div class="empty" style="padding:16px">Nic tu není naskladněno</div>'}
@@ -1952,12 +1959,21 @@ function sesbiratKObjednani() {
     const minimum = g.sdruzeno ? g.cfg.minimum : g.minimumSoucet;
     const optimum = g.sdruzeno ? g.cfg.optimum : g.optimumSoucet;
     const chybi = Math.max(0, optimum - g.mnozstviSoucet);
-    const mista = g.zaznamy.map(z => {
-      const kde = g.sdruzeno
-        ? ((z.dodavatel || '?') + (z.umisteni ? ' / ' + z.umisteni : ''))
-        : (z.umisteni || 'bez umístění');
-      return kde + ': ' + (z.mnozstvi !== null ? z.mnozstvi : '?') + ' ' + jednProd(z);
-    }).join(' · ');
+    // Rozpad po mistnostech (u sdruzenych i s dodavatelem, ktery rozlisi
+    // jednotlive radky se stejnou podkategorii).
+    const mistaCasti = [];
+    g.zaznamy.forEach(z => {
+      const m = mistaProduktu(z);
+      const prefix = g.sdruzeno ? (z.dodavatel || '?') + ' ' : '';
+      const jz = jednProd(z);
+      const klice = Object.keys(m).filter(k => m[k] !== undefined && m[k] !== '');
+      if (klice.length) {
+        klice.forEach(k => mistaCasti.push(prefix + k + ': ' + m[k] + ' ' + jz));
+      } else if (g.sdruzeno) {
+        mistaCasti.push((z.dodavatel || '?') + ': 0 ' + jz);
+      }
+    });
+    const mista = mistaCasti.join(' · ');
     vysledek.push({
       id: g.zaznamy[0].id,
       nazev: g.nazev,
