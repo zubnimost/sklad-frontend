@@ -660,7 +660,7 @@ tr:hover td{background:#fafafa;cursor:pointer}
 </div>
 </div>
 
-<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.23.0/umd/index.min.js"></script>
 <script>
 // Escapuje hodnotu pro bezpecne vlozeni do HTML (proti XSS z naskenovaneho
 // EANu / z toho, co je v tabulce). POUZIVEJ na vsechna data vkladana do
@@ -2113,8 +2113,13 @@ function exportNakupCsv() {
     }
   });
 
+  // Bunky zacinajici na = + - @ prefixujeme apostrofem, aby Excel/Sheets
+  // pri otevreni CSV nevyhodnotil obsah (napr. z nazvu produktu) jako
+  // vzorec ("CSV/formula injection").
   const csv = rows.map(r => r.map(c => {
-    const s = (c||'').toString().replace(/"/g,'""');
+    let s = (c||'').toString();
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
+    s = s.replace(/"/g,'""');
     return s.includes(',') || s.includes('"') ? `"${s}"` : s;
   }).join(',')).join('\n');
 
