@@ -662,6 +662,16 @@ tr:hover td{background:#fafafa;cursor:pointer}
 
 <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <script>
+// Escapuje hodnotu pro bezpecne vlozeni do HTML (proti XSS z naskenovaneho
+// EANu / z toho, co je v tabulce). POUZIVEJ na vsechna data vkladana do
+// innerHTML. Do onclick handleru se textove stringy zasadne nepredavaji —
+// funkce si je dohleda podle ID.
+function esc(s) {
+  return (s === null || s === undefined ? '' : String(s)).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
 let allProducts = [];
 let currentProduct = null;
 let editingId = null;
@@ -868,8 +878,8 @@ function loadPrehledPohyby() {
         const t = r.zmena > 0 ? '+'+r.zmena : r.zmena;
         return `<div class="alert-row">
           <div class="alert-info">
-            <div class="alert-name">${r.produkt}</div>
-            <div class="alert-detail">${r.datum} ${r.cas} · ${r.typ}${r.kdo ? ' · '+r.kdo : ''}</div>
+            <div class="alert-name">${esc(r.produkt)}</div>
+            <div class="alert-detail">${r.datum} ${r.cas} · ${r.typ}${r.kdo ? ' · '+esc(r.kdo) : ''}</div>
           </div>
           <span style="font-size:13px;font-weight:600;color:${c}">${t} ks</span>
         </div>`;
@@ -919,8 +929,8 @@ function alertRowHtml(p, color) {
   return `<div class="alert-row" onclick="openDetail(${p.id})">
     <div class="alert-dot ${color}"></div>
     <div class="alert-info">
-      <div class="alert-name">${p.nazev}</div>
-      <div class="alert-detail">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||'—'}</div>
+      <div class="alert-name">${esc(p.nazev)}</div>
+      <div class="alert-detail">${esc(p.kategorie)}${p.podkategorie ? ' / '+esc(p.podkategorie) : ''} · ${esc(p.dodavatel)||'—'}</div>
     </div>
     <div class="alert-badge"><span class="badge ${color==='red'?'badge-zero':'badge-low'}">${ks} ${jednProd(p)}</span></div>
   </div>`;
@@ -966,10 +976,10 @@ function expiraceRowHtml(p) {
   return `<div class="alert-row" onclick="openDetail(${p.id})">
     <div class="alert-dot ${barva}"></div>
     <div class="alert-info">
-      <div class="alert-name">${p.nazev}</div>
-      <div class="alert-detail">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.mnozstvi} ${jednProd(p)} na skladě</div>
+      <div class="alert-name">${esc(p.nazev)}</div>
+      <div class="alert-detail">${esc(p.kategorie)}${p.podkategorie ? ' / '+esc(p.podkategorie) : ''} · ${p.mnozstvi} ${jednProd(p)} na skladě</div>
     </div>
-    <div class="alert-badge"><span class="badge ${badge}">${p.expirace}</span></div>
+    <div class="alert-badge"><span class="badge ${badge}">${esc(p.expirace)}</span></div>
   </div>`;
 }
 
@@ -1016,15 +1026,15 @@ function renderSearchResults(query) {
     const bc = p.alert==='kriticky' ? 'badge-zero' : p.alert==='nizky' ? 'badge-low' : ks!==null ? 'badge-ok' : 'badge-empty';
     const bt = ks !== null ? ks+' '+jedn : '– '+jedn;
     return `<tr onclick="openDetail(${p.id})">
-      <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.dodavatel||''}</div></td>
-      <td>${p.kategorie||'—'}</td>
-      <td>${p.podkategorie||'—'}</td>
-      <td>${p.dodavatel||'—'}</td>
+      <td><div class="td-name">${esc(p.nazev)}</div><div class="td-sub">${esc(p.dodavatel)||''}</div></td>
+      <td>${esc(p.kategorie)||'—'}</td>
+      <td>${esc(p.podkategorie)||'—'}</td>
+      <td>${esc(p.dodavatel)||'—'}</td>
       <td style="font-size:12px">${mistaSeznam(p)}</td>
       <td><span class="badge ${bc}">${bt}</span></td>
       <td>${p.minimum||'—'} ${jedn}</td>
       <td>${p.optimum||'—'} ${jedn}</td>
-      <td><span class="badge ${p.typ==='sledovaný'?'badge-sledovany':'badge-inventurni'}">${p.typ||'—'}</span></td>
+      <td><span class="badge ${p.typ==='sledovaný'?'badge-sledovany':'badge-inventurni'}">${esc(p.typ)||'—'}</span></td>
     </tr>`;
   }).join('');
 }
@@ -1095,7 +1105,7 @@ function rozpadMistHtml(p) {
 }
 
 function df(label, val) {
-  return `<div class="detail-field-row"><span class="detail-field-label">${label}</span><span class="detail-field-val">${val||'—'}</span></div>`;
+  return `<div class="detail-field-row"><span class="detail-field-label">${esc(label)}</span><span class="detail-field-val">${esc(val || '—')}</span></div>`;
 }
 
 // ── MODALY ────────────────────────────────────────────
@@ -1292,12 +1302,12 @@ function renderPohyby(data) {
     const j = jp ? ' ' + jp : '';
     return `<tr>
     <td>${r.datum}</td><td>${r.cas}</td>
-    <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.produkt}</td>
-    <td><span class="pohyb-typ ${tc(r.typ)}">${r.typ}</span></td>
+    <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.produkt)}</td>
+    <td><span class="pohyb-typ ${tc(r.typ)}">${esc(r.typ)}</span></td>
     <td style="font-weight:600;color:${r.zmena>0?'#1D9E75':'#E24B4A'}">${r.zmena>0?'+'+r.zmena:r.zmena}${j}</td>
     <td>${r.stavPo}${j}</td>
-    <td style="font-size:12px">${r.kdo||''}</td>
-    <td style="color:#888;font-size:12px">${r.poznamka||''}</td>
+    <td style="font-size:12px">${esc(r.kdo)||''}</td>
+    <td style="color:#888;font-size:12px">${esc(r.poznamka)||''}</td>
   </tr>`;
   }).join('');
 }
@@ -1338,8 +1348,8 @@ function renderWizardStep() {
   const label = 'Skutečný stav v místnosti (' + jedn + ')' + (ksb > 1 ? ' · 1 ' + jedn + ' = ' + ksb + ' ks' : '');
   document.getElementById('wizardContent').innerHTML = `
     <div class="wizard-card">
-      <div class="wizard-nazev">${p.nazev}</div>
-      <div class="wizard-sub">${p.kategorie}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||''} · celkem ${p.mnozstvi!==null?p.mnozstvi+' '+jedn:'nezadáno'}</div>
+      <div class="wizard-nazev">${esc(p.nazev)}</div>
+      <div class="wizard-sub">${esc(p.kategorie)}${p.podkategorie ? ' / '+esc(p.podkategorie) : ''} · ${esc(p.dodavatel)||''} · celkem ${p.mnozstvi!==null?p.mnozstvi+' '+jedn:'nezadáno'}</div>
       <div style="text-align:center;margin:8px 0 4px;font-size:13px;color:#666">Místnost</div>
       <select class="form-select" id="wizardMistnost" style="width:100%;margin-bottom:10px" onchange="wizardMistoZmena(${ksb})">${mistOptions}</select>
       <div style="text-align:center;margin-bottom:4px;font-size:13px;color:#666">${label}</div>
@@ -1395,22 +1405,22 @@ function renderSprava(query) {
   const q = (query||'').toLowerCase();
   const results = q ? allProducts.filter(p => p.nazev.toLowerCase().includes(q)).slice(0,60) : allProducts.slice(0,60);
   document.getElementById('spravaBody').innerHTML = results.map(p => `<tr>
-    <td><div class="td-name">${p.nazev}</div></td>
-    <td>${p.kategorie||'—'}</td>
-    <td>${p.podkategorie||'—'}</td>
-    <td>${p.ksVBaleni}</td>
-    <td>${p.minimum} ${jednProd(p)}</td>
-    <td style="font-size:12px">${mistaSeznam(p)}</td>
-    <td><span class="badge ${p.typ==='sledovaný'?'badge-sledovany':'badge-inventurni'}">${p.typ}</span></td>
+    <td><div class="td-name">${esc(p.nazev)}</div></td>
+    <td>${esc(p.kategorie)||'—'}</td>
+    <td>${esc(p.podkategorie)||'—'}</td>
+    <td>${esc(p.ksVBaleni)}</td>
+    <td>${esc(p.minimum)} ${esc(jednProd(p))}</td>
+    <td style="font-size:12px">${esc(mistaSeznam(p))}</td>
+    <td><span class="badge ${p.typ==='sledovaný'?'badge-sledovany':'badge-inventurni'}">${esc(p.typ)}</span></td>
     <td style="white-space:nowrap">
-      <button class="btn" style="padding:5px 8px;font-size:14px" onclick="toggleRadkoveMenu(event, ${p.id}, '${p.nazev.replace(/'/g,"\\'")}')">⋮</button>
+      <button class="btn" style="padding:5px 8px;font-size:14px" onclick="toggleRadkoveMenu(event, ${p.id})">⋮</button>
     </td>
   </tr>`).join('');
 }
 
 // Plovouci menu s "Upravit"/"Smazat" se pripoji primo do <body> (mimo
 // tabulku), aby ho oriznuti (overflow) tabulky nikdy neschovalo pod hranu.
-function toggleRadkoveMenu(event, id, nazev) {
+function toggleRadkoveMenu(event, id) {
   event.stopPropagation();
   const existing = document.getElementById('radkove-menu-floating');
   const bylOtevrenyProTentoRadek = existing && existing.dataset.id == id;
@@ -1431,7 +1441,7 @@ function toggleRadkoveMenu(event, id, nazev) {
   const smazatBtn = document.createElement('button');
   smazatBtn.style.cssText = 'display:block;width:100%;padding:10px 16px;font-size:13px;color:#E24B4A;background:none;border:none;cursor:pointer;text-align:left;white-space:nowrap;border-top:1px solid #f0f0f0';
   smazatBtn.textContent = '🗑 Smazat';
-  smazatBtn.onclick = function() { smazatProduktZeSpravy(id, nazev); };
+  smazatBtn.onclick = function() { smazatProduktZeSpravy(id); };
 
   menu.appendChild(upravitBtn);
   menu.appendChild(smazatBtn);
@@ -1444,7 +1454,9 @@ document.addEventListener('click', function() {
 });
 
 // Trvale smaze produkt ze Skladu (po potvrzeni) a obnovi data.
-function smazatProduktZeSpravy(id, nazev) {
+function smazatProduktZeSpravy(id) {
+  const p = allProducts.find(x => x.id === id);
+  const nazev = p ? p.nazev : '';
   if (!confirm('Opravdu smazat produkt "' + nazev + '"? Tuto akci appka nejde vzít zpět (v historii Google Sheets ano).')) return;
   callBackend('smazatProdukt', { id: id })
     .then(function(res) {
@@ -1625,30 +1637,31 @@ function zpracujNaskenovanyEAN(ean) {
   callBackend('najdiProduktPodleEAN', { ean: ean })
     .then(function(res) {
       if (!res.nalezeno) { zobrazNeznamyEAN(ean); return; }
-      zobrazNalezenyProdukt(res.id, res.nazev, ean);
+      zobrazNalezenyProdukt(res.id);
     })
     .catch(function(e) {
-      document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + e.message + '</div>';
+      document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + esc(e.message) + '</div>';
       skenerAktivni = true;
     });
 }
 
-function zobrazNalezenyProdukt(id, nazev, ean) {
+function zobrazNalezenyProdukt(id) {
   const p = allProducts.find(x => x.id === id);
+  if (!p) return;
   const jedn = jednProd(p);
   const m = mistaProduktu(p);
   const seZasobou = SKLADOVA_MISTA.filter(mi => (parseFloat(m[mi]) || 0) > 0);
-  const nazevEsc = (nazev || '').replace(/'/g, "\\'");
   // Rychly vydej 1 kus/baleni — u kazde mistnosti se zasobou vlastni tlacitko.
+  // Mistnost je z pevneho seznamu SKLADOVA_MISTA (bezpecne), ID je cislo.
   const vydejBtny = seZasobou.length
-    ? seZasobou.map(mi => `<button class="btn" style="width:100%;justify-content:center;background:#FAECE7;color:#993C1D;border-color:#F5C4B3;margin-bottom:6px" onclick="rychlyVydejZeSkeneru(${id}, '${mi.replace(/'/g,"\\'")}', '${nazevEsc}')">− Vydat 1 ${jedn} z „${mi}" (${m[mi]})</button>`).join('')
+    ? seZasobou.map(mi => `<button class="btn" style="width:100%;justify-content:center;background:#FAECE7;color:#993C1D;border-color:#F5C4B3;margin-bottom:6px" onclick="rychlyVydejZeSkeneru(${id}, '${esc(mi)}')">− Vydat 1 ${esc(jedn)} z „${esc(mi)}" (${esc(m[mi])})</button>`).join('')
     : '<div style="font-size:12px;color:#888;margin-bottom:8px">Žádná zásoba — otevři produkt a naskladni.</div>';
-  const stavText = p && p.mnozstvi !== null ? ` · celkem ${p.mnozstvi} ${jedn}` : '';
+  const stavText = p.mnozstvi !== null ? ` · celkem ${esc(p.mnozstvi)} ${esc(jedn)}` : '';
   document.getElementById('skenerVysledek').innerHTML = `
     <div class="content-card full" style="padding:20px;text-align:center">
       <div style="font-size:32px;margin-bottom:8px">✓</div>
-      <div style="font-size:16px;font-weight:600;margin-bottom:4px">${nazev}</div>
-      <div style="font-size:12px;color:#888;margin-bottom:16px">EAN: ${ean}${stavText}</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:4px">${esc(p.nazev)}</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px">EAN: ${esc(p.ean)}${stavText}</div>
       ${vydejBtny}
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="otevriZeSkeneru(${id})">Otevřít produkt</button>
@@ -1659,7 +1672,7 @@ function zobrazNalezenyProdukt(id, nazev, ean) {
 
 // Rychly vydej 1 JEDNOTKY z konkretni mistnosti — pro sestricku u kresla,
 // ktera nema cas otevirat detail. Pro jine mnozstvi/prijem/odpis "Otevřít".
-function rychlyVydejZeSkeneru(id, mistnost, nazev) {
+function rychlyVydejZeSkeneru(id, mistnost) {
   const p = allProducts.find(x => x.id === id);
   if (!p) return;
   const jedn = jednProd(p);
@@ -1671,32 +1684,37 @@ function rychlyVydejZeSkeneru(id, mistnost, nazev) {
 
   callBackend('updateMnozstvi', { id: id, mistnost: mistnost, zmena: -1, typ: 'výdej', poznamka: 'rychlý výdej ze skeneru' })
     .then(function(res) {
-      if (res && res.success === false) { rychlaAktualizace(id, mistnost, vMiste); ukazChybu('Chyba: ' + res.error); zobrazNalezenyProdukt(id, nazev, p.ean); return; }
+      if (res && res.success === false) { rychlaAktualizace(id, mistnost, vMiste); ukazChybu('Chyba: ' + res.error); zobrazNalezenyProdukt(id); return; }
       if (res.noveMnozstviMisto !== odhad) rychlaAktualizace(id, mistnost, res.noveMnozstviMisto);
       document.getElementById('skenerVysledek').innerHTML = `
         <div class="content-card full" style="padding:20px;text-align:center">
           <div style="font-size:32px;margin-bottom:8px">✓</div>
-          <div style="font-size:16px;font-weight:600;margin-bottom:4px">${p.nazev}</div>
-          <div style="font-size:13px;color:#993C1D;margin-bottom:16px">Vydáno 1 ${jedn} z „${mistnost}" · tam nyní ${res.noveMnozstviMisto} ${jedn}</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:4px">${esc(p.nazev)}</div>
+          <div style="font-size:13px;color:#993C1D;margin-bottom:16px">Vydáno 1 ${esc(jedn)} z „${esc(mistnost)}" · tam nyní ${esc(res.noveMnozstviMisto)} ${esc(jedn)}</div>
           <div style="display:flex;gap:8px">
-            <button class="btn" style="flex:1;justify-content:center" onclick="zobrazNalezenyProdukt(${id}, '${(nazev||'').replace(/'/g,"\\'")}', '${p.ean||''}')">Vydat další</button>
+            <button class="btn" style="flex:1;justify-content:center" onclick="zobrazNalezenyProdukt(${id})">Vydat další</button>
             <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="pokracovatSkenovani()">Skenovat další</button>
           </div>
         </div>`;
     })
     .catch(function(e) {
       rychlaAktualizace(id, mistnost, vMiste);
-      document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + e.message + ' — vrácena původní hodnota.</div>';
+      document.getElementById('skenerVysledek').innerHTML = '<div class="empty">Chyba: ' + esc(e.message) + ' — vrácena původní hodnota.</div>';
     });
 }
 
+// Naskenovany EAN, ktery jeste neni prirazen. Drzi se v promenne (ne v
+// onclick atributu), aby se do HTML nedostal neescapovany text.
+let cekajiciEan = '';
+
 function zobrazNeznamyEAN(ean) {
+  cekajiciEan = ean;
   document.getElementById('skenerVysledek').innerHTML = `
     <div class="content-card full" style="padding:20px">
       <div style="text-align:center;margin-bottom:12px">
         <div style="font-size:32px;margin-bottom:8px">❓</div>
         <div style="font-size:14px;font-weight:600">Neznámý EAN kód</div>
-        <div style="font-size:12px;color:#888;margin-top:4px">EAN: ${ean}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">EAN: ${esc(ean)}</div>
       </div>
       <div class="form-group">
         <label class="form-label">Přiřadit k produktu</label>
@@ -1712,23 +1730,24 @@ function zobrazNeznamyEAN(ean) {
     if (!q) { document.getElementById('eanSearchResults').innerHTML = ''; return; }
     const results = allProducts.filter(p => p.nazev.toLowerCase().includes(q)).slice(0, 8);
     document.getElementById('eanSearchResults').innerHTML = results.map(p => `
-      <div class="alert-row" style="cursor:pointer" onclick="priraditEANKProduktu(${p.id}, '${ean}', '${p.nazev.replace(/'/g,"\\'")}')">
+      <div class="alert-row" style="cursor:pointer" onclick="priraditEANKProduktu(${p.id})">
         <div class="alert-info">
-          <div class="alert-name">${p.nazev}</div>
-          <div class="alert-detail">${p.kategorie||''}${p.podkategorie ? ' / '+p.podkategorie : ''} · ${p.dodavatel||''}</div>
+          <div class="alert-name">${esc(p.nazev)}</div>
+          <div class="alert-detail">${esc(p.kategorie)||''}${p.podkategorie ? ' / '+esc(p.podkategorie) : ''} · ${esc(p.dodavatel)||''}</div>
         </div>
       </div>`).join('') || '<div class="empty" style="padding:12px">Nic nenalezeno</div>';
   });
   setTimeout(() => input.focus(), 100);
 }
 
-function priraditEANKProduktu(id, ean, nazev) {
+function priraditEANKProduktu(id) {
+  const ean = cekajiciEan;
   callBackend('prirazEAN', { id: id, ean: ean })
     .then(function(res) {
       if (res.success) {
         const p = allProducts.find(x => x.id === id);
         if (p) p.ean = ean;
-        zobrazNalezenyProdukt(id, nazev, ean);
+        zobrazNalezenyProdukt(id);
       } else {
         alert('Chyba: ' + res.error);
       }
@@ -1869,9 +1888,9 @@ function mistnostKarta(mistnost, produkty) {
         const vMiste = parseFloat(mistaProduktu(p)[mistnost]) || 0;
         const bc = vMiste === 0 ? 'badge-zero' : 'badge-ok';
         return `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
-          <td><div class="td-name">${p.nazev}</div></td>
-          <td>${p.kategorie||'—'}</td>
-          <td>${p.podkategorie||'—'}</td>
+          <td><div class="td-name">${esc(p.nazev)}</div></td>
+          <td>${esc(p.kategorie)||'—'}</td>
+          <td>${esc(p.podkategorie)||'—'}</td>
           <td><span class="badge ${bc}">${vMiste} ${jedn}</span></td>
         </tr>`;
       }).join('')
@@ -2004,12 +2023,12 @@ function renderNakup() {
 
   const prioritaBadge = p => `<span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.alert==='kriticky'?'🔴 Kritické':'🟠 Nízký stav'}</span>`;
   const radekHtml = p => `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
-    <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.mista}</div></td>
-    <td>${p.kategorie||'—'}</td>
-    <td>${p.podkategorie||'—'}</td>
-    <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ${p.jednotka}</span></td>
-    <td>${p.minimum} ${p.jednotka}</td>
-    <td style="font-weight:600;color:#1D9E75">${p.chybi} ${p.jednotka}</td>
+    <td><div class="td-name">${esc(p.nazev)}</div><div class="td-sub">${esc(p.mista)}</div></td>
+    <td>${esc(p.kategorie)||'—'}</td>
+    <td>${esc(p.podkategorie)||'—'}</td>
+    <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ${esc(p.jednotka)}</span></td>
+    <td>${p.minimum} ${esc(p.jednotka)}</td>
+    <td style="font-weight:600;color:#1D9E75">${p.chybi} ${esc(p.jednotka)}</td>
     <td>${prioritaBadge(p)}</td>
   </tr>`;
   const hlavicka = `<thead><tr><th>Název</th><th>Kategorie</th><th>Podkategorie</th><th>Na skladě (vše)</th><th>Minimum</th><th>Objednat</th><th>Priorita</th></tr></thead>`;
@@ -2034,11 +2053,11 @@ function renderNakup() {
             <thead><tr><th>Název</th><th>Dodavatelé</th><th>Na skladě (vše)</th><th>Minimum</th><th>Chybí</th><th>Priorita</th></tr></thead>
             <tbody>
               ${sdruzene.map(p => `<tr onclick="openDetail(${p.id})" style="cursor:pointer">
-                <td><div class="td-name">${p.nazev}</div><div class="td-sub">${p.mista}</div></td>
-                <td>${p.dodavatel||'—'}</td>
-                <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ${p.jednotka}</span></td>
-                <td>${p.minimum} ${p.jednotka}</td>
-                <td style="font-weight:500;color:#E24B4A">${p.chybi} ${p.jednotka}</td>
+                <td><div class="td-name">${esc(p.nazev)}</div><div class="td-sub">${esc(p.mista)}</div></td>
+                <td>${esc(p.dodavatel)||'—'}</td>
+                <td><span class="badge ${p.alert==='kriticky'?'badge-zero':'badge-low'}">${p.mnozstvi} ${esc(p.jednotka)}</span></td>
+                <td>${p.minimum} ${esc(p.jednotka)}</td>
+                <td style="font-weight:500;color:#E24B4A">${p.chybi} ${esc(p.jednotka)}</td>
                 <td>${prioritaBadge(p)}</td>
               </tr>`).join('')}
             </tbody>
