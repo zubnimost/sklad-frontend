@@ -1663,7 +1663,17 @@ function zastavitSkener() {
   document.getElementById('skenerSub').textContent = 'Namiř kameru na čárový kód';
 }
 
-function zpracujNaskenovanyEAN(ean) {
+// HIBC kody (bezne ve zdravotnictvi) obsahuji za lomitkem promenlive udaje
+// (satnice, expirace...), ktere se lisi kus od kusu i pri stejnem produktu
+// — delka teto casti navic neni fixni, takze "oriznout na X znaku" nejde.
+// Appku zajima jen cast PRED prvnim "/", ktera produkt identifikuje.
+// Bezne EAN kody "/" nikdy neobsahuji, takze je to bezpecne i pro ne.
+function primarniCastKodu(kod) {
+  return kod.split('/')[0].trim();
+}
+
+function zpracujNaskenovanyEAN(eanSyrovy) {
+  const ean = primarniCastKodu(eanSyrovy);
   skenerAktivni = false; // dočasně pauza ať to nečte opakovaně
   document.getElementById('skenerSub').textContent = 'Naskenováno: ' + ean;
 
