@@ -1751,7 +1751,7 @@ document.addEventListener('keydown', function(e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (hwBuf.length > 40) hwReset(); // příliš dlouhé — není to čárový kód
+    if (hwBuf.length > 100) hwReset(); // příliš dlouhé — není to čárový kód
   }
 }, true);
 
